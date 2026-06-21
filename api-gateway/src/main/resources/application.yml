@@ -1,0 +1,92 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+          routes:
+          - id: auth-route
+            uri: lb://user-service
+            predicates:
+              - Path=/api/auth/**
+
+          - id: user-route
+            uri: lb://user-service
+            predicates:
+              - Path=/api/users/**
+
+          - id: catalog-service
+            uri: lb://catalog-service
+            predicates:
+              - Path=/api/catalog/**
+
+          - id: cart-service
+            uri: lb://cart-service
+            predicates:
+              - Path=/api/cart/**
+
+          - id: order-service
+            uri: lb://order-service
+            predicates:
+             - Path=/api/orders/**
+
+          - id: inventory-service
+            uri: lb://inventory-service
+            predicates:
+              - Path=/api/inventory/**
+
+          - id: payment-service
+            uri: lb://payment-service
+            predicates:
+              - Path=/api/payments/**
+
+          - id: fulfillment-service
+            uri: lb://fulfillment-service
+            predicates:
+              - Path=/api/fulfillment/**
+
+          - id: ledger-service
+            uri: lb://ledger-service
+            predicates:
+              - Path=/api/ledger/**
+
+          - id: promotion-service
+            uri: lb://promotion-service
+            predicates:
+              - Path=/api/promotions/**
+
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                        allowed-origin-patterns: "*"
+                        allowed-methods:
+                            - GET
+                            - POST
+                            - PUT
+                            - DELETE
+                            - PATCH
+                            - OPTIONS
+                        allowed-headers: "*"
+                        allow-credentials: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

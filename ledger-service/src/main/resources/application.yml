@@ -1,0 +1,36 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: ledger-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/ledger_db?createDatabaseIfNotExist=true
+    username: root
+    password: root1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ledger-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: 'com.ordering.common.event'
+        spring.json.value.default.type: 'com.ordering.common.event.PaymentEvent'
+
+eureka:
+    client:
+      service-url:
+        defaultZone: http://localhost:8761/eureka/

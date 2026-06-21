@@ -1,0 +1,43 @@
+dataSources:
+  ds0:
+    dataSourceClassName: com.zaxxer.hikari.HikariDataSource
+    jdbcUrl: jdbc:mysql://localhost:3306/order_db_0?useSSL=false&serverTimezone=UTC
+    username: root
+    password: root1234
+
+  ds1:
+    dataSourceClassName: com.zaxxer.hikari.HikariDataSource
+    jdbcUrl: jdbc:mysql://localhost:3306/order_db_1?useSSL=false&serverTimezone=UTC
+    username: root
+    password: root1234
+
+rules:
+  - !SHARDING
+    tables:
+      orders:
+        actualDataNodes: ds${0..1}.orders
+        databaseStrategy:
+          standard:
+            shardingColumn: id
+            shardingAlgorithmName: order-inline
+
+      order_items:
+        actualDataNodes: ds${0..1}.order_items
+        databaseStrategy:
+          standard:
+            shardingColumn: order_id
+            shardingAlgorithmName: orderitem-inline
+
+    shardingAlgorithms:
+      order-inline:
+        type: INLINE
+        props:
+          algorithm-expression: ds${id % 2}
+
+      orderitem-inline:
+        type: INLINE
+        props:
+          algorithm-expression: ds${order_id % 2}
+
+props:
+  sql-show: true
