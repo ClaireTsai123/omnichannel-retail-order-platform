@@ -1,13 +1,13 @@
 dataSources:
   ds0:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
-    jdbcUrl: jdbc:mysql://localhost:3306/order_db_0?useSSL=false&serverTimezone=UTC
-    username: root
-    password: root1234
+    jdbcUrl: jdbc:mysql://localhost:3306/order_db_0?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: $${DB_USERNAME::}
+    password: $${DB_PASSWORD::}
 
   ds1:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
-    jdbcUrl: jdbc:mysql://localhost:3306/order_db_1?useSSL=false&serverTimezone=UTC
+    jdbcUrl: jdbc:mysql://localhost:3306/order_db_1?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: root1234
 
