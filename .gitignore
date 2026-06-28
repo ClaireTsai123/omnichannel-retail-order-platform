@@ -2,5 +2,6 @@
 target/
 .env
 .env.*
+.mvn/wrapper/maven-wrapper.jar
 *.iml
 .DS_Store
