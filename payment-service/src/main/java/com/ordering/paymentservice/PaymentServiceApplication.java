@@ -8,9 +8,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 		"com.ordering.paymentservice",
 		"com.ordering.common"
 })
-@EnableFeignClients
 public class PaymentServiceApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(PaymentServiceApplication.class, args);
 	}

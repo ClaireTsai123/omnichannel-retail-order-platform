@@ -9,8 +9,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
         "com.ordering.fulfillmentservice",
         "com.ordering.common",
 })
-@EnableDiscoveryClient
-@EnableFeignClients(basePackages = "com.ordering")
 public class FulfillmentServiceApplication {
 
     public static void main(String[] args) {

@@ -1,4 +1,4 @@
-package com.ordering.fulfillmentservice.listener;
+package com.ordering.fulfillmentservice.consumer;
 
 import com.ordering.common.event.OrderEvent;
 import com.ordering.common.event.OrderEventType;

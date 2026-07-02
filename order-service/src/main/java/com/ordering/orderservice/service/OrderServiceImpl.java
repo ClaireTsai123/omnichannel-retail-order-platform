@@ -35,7 +35,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final CartClient cartClient;
-    private  final InventoryClient inventoryClient;
+    private final InventoryClient inventoryClient;
     private final PaymentClient paymentClient;
     private final PromotionClient promotionClient;
     private final OrderEventProducer orderEventProducer;
@@ -74,7 +74,7 @@ public class OrderServiceImpl implements OrderService {
             PromotionResponse promotion =
                     promotionClient.validatePromotion(request.getPromotionCode());
             if (promotion.isValid()) {
-                BigDecimal discount = BigDecimal.valueOf(100- promotion.getDiscountPercentage())
+                BigDecimal discount = BigDecimal.valueOf(100 - promotion.getDiscountPercentage())
                         .divide(BigDecimal.valueOf(100));
                 totalAmount = totalAmount.multiply(discount);
             }
@@ -101,7 +101,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         System.out.println("Saving order item, orderId = " + orderId);
-        OrderEvent  event = new OrderEvent();
+        OrderEvent event = new OrderEvent();
         event.setEventId(UUID.randomUUID().toString());
         event.setEventType(OrderEventType.ORDER_CREATED);
         event.setOrderId(savedOrder.getId());
@@ -212,9 +212,9 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void updateStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-       if(order.getStatus() == status){
-           return;
-       }
+        if (order.getStatus() == status) {
+            return;
+        }
         order.setStatus(status);
     }
 

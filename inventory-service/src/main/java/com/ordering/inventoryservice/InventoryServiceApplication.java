@@ -8,9 +8,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
         "com.ordering.inventoryservice",
         "com.ordering.common"
 })
-@EnableFeignClients
 public class InventoryServiceApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(InventoryServiceApplication.class, args);
     }

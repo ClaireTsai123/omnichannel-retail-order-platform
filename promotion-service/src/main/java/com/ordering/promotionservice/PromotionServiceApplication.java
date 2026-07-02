@@ -8,7 +8,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 		"com.ordering.promotionservice",
 		"com.ordering.common"
 })
-@EnableFeignClients
 public class PromotionServiceApplication {
 
 	public static void main(String[] args) {

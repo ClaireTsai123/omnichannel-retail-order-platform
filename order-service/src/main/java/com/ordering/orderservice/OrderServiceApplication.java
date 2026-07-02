@@ -10,7 +10,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
                 "com.ordering.common"
         }
 )
-@EnableDiscoveryClient
 @EnableFeignClients(
         basePackages = "com.ordering",
         defaultConfiguration = FeignConfig.class
