@@ -215,6 +215,10 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() == status) {
             return;
         }
+        if (!isValidStatusTransition(order.getStatus(), status)) {
+            throw new BadRequestException("Invalid order status transition from "
+                    + order.getStatus() + " to " + status);
+        }
         order.setStatus(status);
     }
 
@@ -252,5 +256,19 @@ public class OrderServiceImpl implements OrderService {
         dto.setUnitPrice(item.getUnitPrice());
         dto.setQuantity(item.getQuantity());
         return dto;
+    }
+
+    private boolean isValidStatusTransition(OrderStatus currentStatus, OrderStatus nextStatus) {
+        return switch (currentStatus) {
+            case CREATED -> nextStatus == OrderStatus.PAID
+                    || nextStatus == OrderStatus.PAYMENT_FAILED
+                    || nextStatus == OrderStatus.CANCELLED;
+            case PAID -> nextStatus == OrderStatus.PROCESSING
+                    || nextStatus == OrderStatus.SHIPPED
+                    || nextStatus == OrderStatus.CANCELLED;
+            case PROCESSING -> nextStatus == OrderStatus.SHIPPED;
+            case SHIPPED -> nextStatus == OrderStatus.DELIVERED;
+            case DELIVERED, PAYMENT_FAILED, CANCELLED -> false;
+        };
     }
 }

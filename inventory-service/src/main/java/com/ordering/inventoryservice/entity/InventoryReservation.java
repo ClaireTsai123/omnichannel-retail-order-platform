@@ -2,8 +2,6 @@ package com.ordering.inventoryservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,8 +26,7 @@ public class InventoryReservation {
     private Integer quantity;
     @Enumerated(EnumType.STRING)
     private ReservationStatus status;
-
-    @CreationTimestamp
-    private LocalDateTime createAt;
+    @Column(nullable = false)
+    private LocalDateTime reservedAt;
 
 }

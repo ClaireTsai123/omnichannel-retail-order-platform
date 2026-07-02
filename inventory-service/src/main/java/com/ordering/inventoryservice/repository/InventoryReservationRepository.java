@@ -4,6 +4,7 @@ import com.ordering.inventoryservice.entity.InventoryReservation;
 import com.ordering.inventoryservice.entity.ReservationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,4 +14,6 @@ public interface InventoryReservationRepository extends JpaRepository<InventoryR
     List<InventoryReservation> findByOrderIdAndStatus(Long orderId, ReservationStatus status);
 
     Optional<InventoryReservation> findByOrderIdAndSku(Long orderId, String sku);
+
+    List<InventoryReservation> findByStatusAndReservedAtBefore(ReservationStatus status, LocalDateTime reservedAt);
 }

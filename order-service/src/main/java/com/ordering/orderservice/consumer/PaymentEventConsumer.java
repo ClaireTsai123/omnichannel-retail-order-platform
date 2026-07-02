@@ -25,7 +25,7 @@ public class PaymentEventConsumer {
                     orderService.updateStatus(event.getOrderId(), OrderStatus.PAID);
             case PAYMENT_FAILED -> {
                 inventoryClient.releaseInventory(event.getOrderId());
-                orderService.updateStatus(event.getOrderId(), OrderStatus.CANCELLED);
+                orderService.updateStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
             }
 
         }

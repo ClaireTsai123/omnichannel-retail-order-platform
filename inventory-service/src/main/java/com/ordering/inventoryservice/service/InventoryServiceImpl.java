@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -52,6 +53,7 @@ public class InventoryServiceImpl implements InventoryService {
             reservation.setSku(item.getSku());
             reservation.setQuantity(item.getQuantity());
             reservation.setStatus(ReservationStatus.RESERVED);
+            reservation.setReservedAt(LocalDateTime.now());
             reservationRepository.save(reservation);
         }
     }
@@ -74,6 +76,11 @@ public class InventoryServiceImpl implements InventoryService {
 
             Inventory inventory = inventoryRepository.findBySku(reservation.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for sku: " + reservation.getSku()));
+
+            if (inventory.getReservedQuantity() < reservation.getQuantity()) {
+                throw new RuntimeException("Reserved quantity is inconsistent for sku: " + reservation.getSku());
+            }
+
             inventory.setReservedQuantity(inventory.getReservedQuantity() - reservation.getQuantity());
             reservation.setStatus(ReservationStatus.COMMITTED);
 
@@ -101,6 +108,10 @@ public class InventoryServiceImpl implements InventoryService {
             Inventory inventory = inventoryRepository.findBySku(reservation.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for sku: " + reservation.getSku()));
             inventory.setAvailableQuantity(inventory.getAvailableQuantity() + reservation.getQuantity());
+
+            if (inventory.getReservedQuantity() < reservation.getQuantity()) {
+                throw new RuntimeException("Reserved quantity is inconsistent for sku: " + reservation.getSku());
+            }
             inventory.setReservedQuantity(inventory.getReservedQuantity() - reservation.getQuantity());
             reservation.setStatus(ReservationStatus.RELEASED);
 
