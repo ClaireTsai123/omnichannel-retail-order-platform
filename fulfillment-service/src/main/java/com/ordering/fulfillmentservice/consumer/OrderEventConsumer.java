@@ -16,7 +16,7 @@ public class OrderEventConsumer {
     @KafkaListener(topics = KafkaTopics.ORDER_EVENTS_TOPIC,
     groupId = "fulfillment-service-group")
     public void consume(OrderEvent event) {
-        if (event.getEventType() == OrderEventType.ORDER_CREATED) {
+        if (event.getEventType() == OrderEventType.ORDER_PAID) {
             fulfillmentService.createFulfillment(
                     event.getOrderId(),
                     event.getUserId()

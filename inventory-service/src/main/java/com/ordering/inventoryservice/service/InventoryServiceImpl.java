@@ -24,6 +24,18 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional
     public void reserveInventory(InventoryReserveRequest request) {
         for (InventoryReserveItem item : request.getItems()) {
+            InventoryReservation existingReservation = reservationRepository
+                    .findByOrderIdAndSku(request.getOrderId(), item.getSku())
+                    .orElse(null);
+            if (existingReservation != null) {
+                if (existingReservation.getStatus() == ReservationStatus.RESERVED
+                        || existingReservation.getStatus() == ReservationStatus.COMMITTED) {
+                    continue;
+                }
+                throw new RuntimeException("Inventory reservation already exists for orderId: "
+                        + request.getOrderId() + ", sku: " + item.getSku());
+            }
+
             Inventory inventory = inventoryRepository.findBySku(item.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for sku: " + item.getSku()));
 
@@ -47,11 +59,19 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void commitInventory(Long orderId) {
-        List<InventoryReservation> reservations = reservationRepository.findByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
+        List<InventoryReservation> reservations = reservationRepository.findByOrderId(orderId);
         if (reservations.isEmpty()) {
-            throw new RuntimeException("No reserved inventory found for orderId: " + orderId);
+            throw new RuntimeException("No inventory reservation found for orderId: " + orderId);
         }
         for (InventoryReservation reservation : reservations) {
+            if (reservation.getStatus() == ReservationStatus.COMMITTED) {
+                continue;
+            }
+            if (reservation.getStatus() == ReservationStatus.RELEASED) {
+                throw new RuntimeException("Released inventory reservation cannot be committed for orderId: "
+                        + orderId + ", sku: " + reservation.getSku());
+            }
+
             Inventory inventory = inventoryRepository.findBySku(reservation.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for sku: " + reservation.getSku()));
             inventory.setReservedQuantity(inventory.getReservedQuantity() - reservation.getQuantity());
@@ -65,11 +85,19 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void releaseInventory(Long orderId) {
-      List<InventoryReservation> reservations = reservationRepository.findByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
+      List<InventoryReservation> reservations = reservationRepository.findByOrderId(orderId);
         if (reservations.isEmpty()) {
-            throw new RuntimeException("No reserved inventory found for orderId: " + orderId);
+            throw new RuntimeException("No inventory reservation found for orderId: " + orderId);
         }
         for (InventoryReservation reservation : reservations) {
+            if (reservation.getStatus() == ReservationStatus.RELEASED) {
+                continue;
+            }
+            if (reservation.getStatus() == ReservationStatus.COMMITTED) {
+                throw new RuntimeException("Committed inventory reservation cannot be released for orderId: "
+                        + orderId + ", sku: " + reservation.getSku());
+            }
+
             Inventory inventory = inventoryRepository.findBySku(reservation.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for sku: " + reservation.getSku()));
             inventory.setAvailableQuantity(inventory.getAvailableQuantity() + reservation.getQuantity());
