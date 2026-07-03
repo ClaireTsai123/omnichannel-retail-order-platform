@@ -13,3 +13,17 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   server:
     enable-self-preservation: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+info:
+  app:
+    name: eureka-server
+    service: eureka-server

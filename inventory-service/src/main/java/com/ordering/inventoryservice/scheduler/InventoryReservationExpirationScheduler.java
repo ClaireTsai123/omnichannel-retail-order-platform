@@ -3,6 +3,7 @@ package com.ordering.inventoryservice.scheduler;
 import com.ordering.inventoryservice.entity.Inventory;
 import com.ordering.inventoryservice.entity.InventoryReservation;
 import com.ordering.inventoryservice.entity.ReservationStatus;
+import com.ordering.inventoryservice.metrics.InventoryMetrics;
 import com.ordering.inventoryservice.repository.InventoryRepository;
 import com.ordering.inventoryservice.repository.InventoryReservationRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class InventoryReservationExpirationScheduler {
 
     private final InventoryRepository inventoryRepository;
     private final InventoryReservationRepository reservationRepository;
+    private final InventoryMetrics inventoryMetrics;
 
     @Value("${inventory.reservation.expiration-minutes:30}")
     private long reservationExpirationMinutes;
@@ -51,6 +53,7 @@ public class InventoryReservationExpirationScheduler {
 
             inventoryRepository.save(inventory);
             reservationRepository.save(reservation);
+            inventoryMetrics.recordInventoryExpiredRelease();
 
             log.info("Released expired inventory reservation, orderId={}, sku={}, quantity={}",
                     reservation.getOrderId(), reservation.getSku(), reservation.getQuantity());

@@ -13,6 +13,7 @@ import com.ordering.orderservice.client.InventoryClient;
 import com.ordering.orderservice.client.PaymentClient;
 import com.ordering.orderservice.client.PromotionClient;
 import com.ordering.orderservice.entity.Order;
+import com.ordering.orderservice.metrics.OrderMetrics;
 import com.ordering.orderservice.producer.OrderEventProducer;
 import com.ordering.orderservice.repository.OrderRepository;
 import com.ordering.orderservice.util.IdGenerator;
@@ -39,6 +40,7 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentClient paymentClient;
     private final PromotionClient promotionClient;
     private final OrderEventProducer orderEventProducer;
+    private final OrderMetrics orderMetrics;
 
     // for sharding
     private final IdGenerator idGenerator;
@@ -113,6 +115,7 @@ public class OrderServiceImpl implements OrderService {
 
         //3. clear cart
         cartClient.clearCart(userId.toString());
+        orderMetrics.recordOrderCreation();
 
         return savedOrder;
     }

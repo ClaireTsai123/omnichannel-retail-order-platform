@@ -6,6 +6,7 @@ import com.ordering.common.dto.InventoryResponse;
 import com.ordering.inventoryservice.entity.Inventory;
 import com.ordering.inventoryservice.entity.InventoryReservation;
 import com.ordering.inventoryservice.entity.ReservationStatus;
+import com.ordering.inventoryservice.metrics.InventoryMetrics;
 import com.ordering.inventoryservice.repository.InventoryRepository;
 import com.ordering.inventoryservice.repository.InventoryReservationRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.List;
 public class InventoryServiceImpl implements InventoryService {
     private final InventoryRepository inventoryRepository;
     private final InventoryReservationRepository reservationRepository;
+    private final InventoryMetrics inventoryMetrics;
 
     @Override
     @Transactional
@@ -55,6 +57,7 @@ public class InventoryServiceImpl implements InventoryService {
             reservation.setStatus(ReservationStatus.RESERVED);
             reservation.setReservedAt(LocalDateTime.now());
             reservationRepository.save(reservation);
+            inventoryMetrics.recordInventoryReservation();
         }
     }
 
@@ -86,6 +89,7 @@ public class InventoryServiceImpl implements InventoryService {
 
             inventoryRepository.save(inventory);
             reservationRepository.save(reservation);
+            inventoryMetrics.recordInventoryBusinessRelease();
         }
     }
 

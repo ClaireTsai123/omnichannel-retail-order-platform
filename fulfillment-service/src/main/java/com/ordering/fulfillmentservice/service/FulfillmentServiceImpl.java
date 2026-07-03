@@ -4,6 +4,7 @@ import com.ordering.common.domain.FulfillmentStatus;
 import com.ordering.common.dto.FulfillmentResponse;
 import com.ordering.common.event.FulfillmentStatusUpdatedEvent;
 import com.ordering.fulfillmentservice.entity.Fulfillment;
+import com.ordering.fulfillmentservice.metrics.FulfillmentMetrics;
 import com.ordering.fulfillmentservice.producer.FulfillmentEventProducer;
 import com.ordering.fulfillmentservice.repository.FulfillmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,8 @@ public class FulfillmentServiceImpl implements FulfillmentService {
 
     private final FulfillmentRepository fulfillmentRepository;
     private final FulfillmentEventProducer fulfillmentEventProducer;
+    private final FulfillmentMetrics fulfillmentMetrics;
+
     @Override
     @Transactional
     public void createFulfillment(Long orderId, Long userId) {
@@ -27,6 +30,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         fulfillment.setUserId(userId);
         fulfillment.setStatus(FulfillmentStatus.CREATED);
         fulfillmentRepository.save(fulfillment);
+        fulfillmentMetrics.recordFulfillmentCreation();
 
     }
 

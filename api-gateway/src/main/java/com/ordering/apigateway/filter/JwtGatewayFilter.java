@@ -31,7 +31,11 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         System.out.println("GATEWAY PATH = " + exchange.getRequest().getURI().getPath());
 
         // Allow public endpoints
-        if (path.startsWith("/api/auth")){
+        if (path.startsWith("/api/auth")
+                || path.startsWith("/actuator/health")
+                || path.startsWith("/actuator/info")
+                || path.startsWith("/actuator/prometheus")
+        ||path.startsWith("/actuator/metrics")) {
             System.out.println("WHITELIST HIT");
             return chain.filter(exchange);
         }

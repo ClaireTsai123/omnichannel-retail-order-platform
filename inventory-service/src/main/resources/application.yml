@@ -28,3 +28,17 @@ inventory:
   reservation:
     expiration-minutes: 30
     scheduler-interval-ms: 300000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+info:
+  app:
+    name: inventory-service
+    service: inventory-service

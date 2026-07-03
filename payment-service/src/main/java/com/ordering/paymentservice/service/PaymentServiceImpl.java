@@ -6,6 +6,7 @@ import com.ordering.common.dto.PaymentResponse;
 import com.ordering.common.event.PaymentEvent;
 import com.ordering.common.event.PaymentEventType;
 import com.ordering.paymentservice.entity.Payment;
+import com.ordering.paymentservice.metrics.PaymentMetrics;
 import com.ordering.paymentservice.producer.PaymentEventProducer;
 import com.ordering.paymentservice.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentEventProducer paymentEventProducer;
+    private final PaymentMetrics paymentMetrics;
 
 
     @Override
@@ -45,6 +47,8 @@ public class PaymentServiceImpl implements PaymentService {
         // simulate payment authorization success
         payment.setStatus(PaymentStatus.AUTHORIZED);
         Payment saved = paymentRepository.save(payment);
+
+        paymentMetrics.recordPaymentAuthorization();
 
         PaymentEvent event = new PaymentEvent();
         event.setEventId(UUID.randomUUID().toString());
@@ -92,6 +96,7 @@ public class PaymentServiceImpl implements PaymentService {
         event.setOccurredAt(LocalDateTime.now());
 
         paymentEventProducer.publish(event);
+        paymentMetrics.recordPaymentFailed();
         return toResponse(saved);
     }
 
