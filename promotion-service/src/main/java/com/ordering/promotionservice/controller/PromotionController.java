@@ -21,7 +21,7 @@ public class PromotionController {
         return promotionService.validatePromotion(code, source);
     }
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','VENDOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','VENDOR','CUSTOMER')")
     public PromotionResponse createPromotion(@RequestBody PromotionRequest request) {
         return promotionService.createPromotion(request);
     }
