@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class OrderMetrics {
-
+    
     private final Counter orderCreatedCounter;
 
     public OrderMetrics(MeterRegistry meterRegistry) {
