@@ -1,5 +1,6 @@
 package com.ordering.orderservice.service;
 
+import com.ordering.common.domain.OrderSource;
 import com.ordering.common.domain.OrderStatus;
 import com.ordering.common.domain.PaymentStatus;
 import com.ordering.common.dto.*;
@@ -72,9 +73,10 @@ public class OrderServiceImpl implements OrderService {
         inventoryClient.reserveInventory(reserveRequest);
         //1, create order
         BigDecimal totalAmount = cart.getTotalPrice();
+        OrderSource orderSource = request.getSource() == null ? OrderSource.WEB : request.getSource();
         if (request.getPromotionCode() != null && !request.getPromotionCode().isBlank()) {
             PromotionResponse promotion =
-                    promotionClient.validatePromotion(request.getPromotionCode());
+                    promotionClient.validatePromotion(request.getPromotionCode(), orderSource);
             if (promotion.isValid()) {
                 BigDecimal discount = BigDecimal.valueOf(100 - promotion.getDiscountPercentage())
                         .divide(BigDecimal.valueOf(100));
@@ -86,6 +88,7 @@ public class OrderServiceImpl implements OrderService {
         System.out.println("Creating order with ID = " + orderId);
         order.setUserId(userId);
         order.setTotalAmount(totalAmount);
+        order.setSource(orderSource);
         order.setStatus(OrderStatus.CREATED);
         Order savedOrder = orderRepository.save(order);
         //2, save order item
@@ -109,6 +112,7 @@ public class OrderServiceImpl implements OrderService {
         event.setOrderId(savedOrder.getId());
         event.setUserId(savedOrder.getUserId());
         event.setTotalAmount(savedOrder.getTotalAmount());
+        event.setSource(savedOrder.getSource());
         event.setOccurredAt(LocalDateTime.now());
 
         orderEventProducer.publish(event);
@@ -152,6 +156,7 @@ public class OrderServiceImpl implements OrderService {
         orderEvent.setOrderId(saved.getId());
         orderEvent.setUserId(saved.getUserId());
         orderEvent.setTotalAmount(saved.getTotalAmount());
+        orderEvent.setSource(saved.getSource());
         orderEvent.setOccurredAt(LocalDateTime.now());
         orderEventProducer.publish(orderEvent);
 
@@ -175,6 +180,7 @@ public class OrderServiceImpl implements OrderService {
         OrderDTO dto = new OrderDTO();
         dto.setId(order.getId());
         dto.setTotalAmount(order.getTotalAmount());
+        dto.setSource(order.getSource());
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setItems(items);
@@ -205,6 +211,7 @@ public class OrderServiceImpl implements OrderService {
         event.setOrderId(saved.getId());
         event.setUserId(saved.getUserId());
         event.setTotalAmount(saved.getTotalAmount());
+        event.setSource(saved.getSource());
         event.setOccurredAt(LocalDateTime.now());
         orderEventProducer.publish(event);
 
@@ -241,6 +248,7 @@ public class OrderServiceImpl implements OrderService {
         OrderDTO dto = new OrderDTO();
         dto.setId(order.getId());
         dto.setTotalAmount(order.getTotalAmount());
+        dto.setSource(order.getSource());
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setItems(orderItemRepository.findByOrderId(order.getId())

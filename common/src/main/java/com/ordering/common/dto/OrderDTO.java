@@ -1,5 +1,6 @@
 package com.ordering.common.dto;
 
+import com.ordering.common.domain.OrderSource;
 import com.ordering.common.domain.OrderStatus;
 import lombok.Data;
 
@@ -11,6 +12,7 @@ import java.util.List;
 public class OrderDTO {
     private Long id;
     private BigDecimal totalAmount;
+    private OrderSource source;
     private OrderStatus status;
     private LocalDateTime createdAt;
     private List<OrderItemDTO> items;

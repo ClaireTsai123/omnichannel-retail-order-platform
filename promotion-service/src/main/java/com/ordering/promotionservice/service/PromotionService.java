@@ -1,10 +1,11 @@
 package com.ordering.promotionservice.service;
 
+import com.ordering.common.domain.OrderSource;
 import com.ordering.common.dto.PromotionRequest;
 import com.ordering.common.dto.PromotionResponse;
 
 public interface PromotionService {
-    PromotionResponse validatePromotion(String code);
+    PromotionResponse validatePromotion(String code, OrderSource source);
     PromotionResponse createPromotion(PromotionRequest request);
 
     PromotionResponse updatePromotion(Long id, PromotionRequest request);

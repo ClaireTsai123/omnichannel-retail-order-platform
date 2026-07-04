@@ -1,5 +1,6 @@
 package com.ordering.promotionservice.controller;
 
+import com.ordering.common.domain.OrderSource;
 import com.ordering.common.dto.PromotionRequest;
 import com.ordering.common.dto.PromotionResponse;
 import com.ordering.promotionservice.service.PromotionService;
@@ -15,8 +16,9 @@ public class PromotionController {
     private final PromotionService promotionService;
 
     @GetMapping("/{code}")
-    public PromotionResponse getPromotion( @PathVariable  String code) {
-        return promotionService.validatePromotion(code);
+    public PromotionResponse getPromotion(@PathVariable String code,
+                                          @RequestParam(defaultValue = "WEB") OrderSource source) {
+        return promotionService.validatePromotion(code, source);
     }
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','VENDOR')")

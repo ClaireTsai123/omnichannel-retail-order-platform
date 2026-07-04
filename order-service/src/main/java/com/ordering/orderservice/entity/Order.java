@@ -1,4 +1,6 @@
 package com.ordering.orderservice.entity;
+
+import com.ordering.common.domain.OrderSource;
 import com.ordering.common.domain.OrderStatus;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -6,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "orders")
 @Data
@@ -15,6 +18,8 @@ public class Order {
 
     private Long userId;
     private BigDecimal totalAmount;
+    @Enumerated(EnumType.STRING)
+    private OrderSource source;
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 

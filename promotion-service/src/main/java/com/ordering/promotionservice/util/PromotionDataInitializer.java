@@ -1,5 +1,6 @@
 package com.ordering.promotionservice.util;
 
+import com.ordering.common.domain.OrderSource;
 import com.ordering.promotionservice.entity.Promotion;
 import com.ordering.promotionservice.repository.PromotionRepository;
 import lombok.RequiredArgsConstructor;
@@ -7,6 +8,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 
 @Component
@@ -80,6 +83,7 @@ public class PromotionDataInitializer implements CommandLineRunner {
         promotion.setActive(active);
         promotion.setStartTime(start);
         promotion.setEndTime(end);
+        promotion.setAllowedSources(new HashSet<>(EnumSet.allOf(OrderSource.class)));
 
         return promotion;
     }
