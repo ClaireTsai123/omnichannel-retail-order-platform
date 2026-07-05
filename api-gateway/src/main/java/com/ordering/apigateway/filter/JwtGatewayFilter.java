@@ -32,6 +32,10 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
 
         // Allow public endpoints
         if (path.startsWith("/api/auth")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui/")
+                || path.equals("/v3/api-docs")
+                || path.startsWith("/v3/api-docs/")
                 || path.startsWith("/actuator/health")
                 || path.startsWith("/actuator/info")
                 || path.startsWith("/actuator/prometheus")
