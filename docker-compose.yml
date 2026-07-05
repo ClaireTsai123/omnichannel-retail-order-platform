@@ -141,6 +141,34 @@ services:
     networks:
       - omnichannel-infra
 
+  promotion-service:
+    build:
+      context: .
+      dockerfile: promotion-service/Dockerfile
+    container_name: omnichannel-promotion-service
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+    ports:
+      - "${PROMOTION_SERVICE_PORT:-8089}:8089"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8089/actuator/health | grep UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - omnichannel-infra
+
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: omnichannel-kafka
