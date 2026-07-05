@@ -35,6 +35,22 @@ services:
     networks:
       - omnichannel-infra
 
+  eureka-server:
+    build:
+      context: .
+      dockerfile: eureka-server/Dockerfile
+    container_name: omnichannel-eureka-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - omnichannel-infra
+
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: omnichannel-kafka
