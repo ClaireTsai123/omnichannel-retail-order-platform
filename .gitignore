@@ -1,6 +1,8 @@
 .idea/
 target/
 .env
+Project_guide.md
+INTERVIEW_GUIDE.md
 .env.*
 .mvn/wrapper/maven-wrapper.jar
 *.iml
