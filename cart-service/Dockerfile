@@ -1,12 +1,15 @@
-FROM eclipse-temurin:17-jdk-alpine AS build
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN apk add --no-cache maven
-RUN mvn clean package -DskipTests
+FROM maven:3.9.9-eclipse-temurin-17 AS build
+WORKDIR /workspace
+COPY . .
+RUN mvn -N install
+RUN mvn -pl common clean install -DskipTests -Dspring-boot.repackage.skip=true
+RUN mvn -pl cart-service clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
-EXPOSE 8080
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /workspace/cart-service/target/*.jar app.jar
+EXPOSE 8083
 ENTRYPOINT ["java", "-jar", "app.jar"]
