@@ -5,6 +5,15 @@ Phase 1 enables OpenTelemetry Java Agent tracing only for:
 - api-gateway
 - order-service
 
+Phase 2 extends Java Agent tracing to the synchronous downstream services called by order-service through Feign:
+
+- cart-service
+- inventory-service
+- payment-service
+- promotion-service
+
+Kafka-based tracing is not enabled yet.
+
 Zipkin runs in Docker Compose and exposes its UI at:
 
 - http://localhost:9411

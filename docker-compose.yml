@@ -125,6 +125,11 @@ services:
       REDIS_PORT: 6379
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      OTEL_SERVICE_NAME: cart-service
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
     ports:
       - "${CART_SERVICE_PORT:-8083}:8083"
     depends_on:
@@ -132,6 +137,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health | grep UP"]
       interval: 10s
@@ -199,6 +206,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-root1234}
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      OTEL_SERVICE_NAME: promotion-service
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
     ports:
       - "${PROMOTION_SERVICE_PORT:-8089}:8089"
     depends_on:
@@ -206,6 +218,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8089/actuator/health | grep UP"]
       interval: 10s
@@ -230,6 +244,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      OTEL_SERVICE_NAME: inventory-service
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
     ports:
       - "${INVENTORY_SERVICE_PORT:-8086}:8086"
     depends_on:
@@ -241,6 +260,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8086/actuator/health | grep UP"]
       interval: 10s
@@ -263,6 +284,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      OTEL_SERVICE_NAME: payment-service
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
     ports:
       - "${PAYMENT_SERVICE_PORT:-8087}:8087"
     depends_on:
@@ -272,6 +298,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8087/actuator/health | grep UP"]
       interval: 10s
