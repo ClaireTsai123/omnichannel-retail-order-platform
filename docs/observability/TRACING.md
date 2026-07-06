@@ -12,7 +12,15 @@ Phase 2 extends Java Agent tracing to the synchronous downstream services called
 - payment-service
 - promotion-service
 
-Kafka-based tracing is not enabled yet.
+Phase 3 enables tracing for Kafka producer and consumer flows.
+
+Expected Kafka traces should include publish and consume spans across these event paths:
+
+- order-service publishes order-events; fulfillment-service consumes order-events.
+- payment-service publishes payment-events; order-service and ledger-service consume payment-events.
+- fulfillment-service publishes fulfillment-events; order-service consumes fulfillment-events.
+
+ledger-service and fulfillment-service should appear in Zipkin when they consume Kafka events.
 
 Zipkin runs in Docker Compose and exposes its UI at:
 

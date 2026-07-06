@@ -5,7 +5,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root1234}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -166,6 +166,7 @@ services:
       OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
+      OTEL_PROPAGATORS: tracecontext,baggage,b3
     ports:
       - "${ORDER_SERVICE_PORT:-8084}:8084"
     depends_on:
@@ -289,6 +290,7 @@ services:
       OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
+      OTEL_PROPAGATORS: tracecontext,baggage,b3
     ports:
       - "${PAYMENT_SERVICE_PORT:-8087}:8087"
     depends_on:
@@ -322,6 +324,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      OTEL_SERVICE_NAME: ledger-service
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_PROPAGATORS: tracecontext,baggage,b3
     ports:
       - "${LEDGER_SERVICE_PORT:-8088}:8088"
     depends_on:
@@ -331,6 +339,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8088/actuator/health | grep UP"]
       interval: 10s
@@ -353,6 +363,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      OTEL_SERVICE_NAME: fulfillment-service
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_PROPAGATORS: tracecontext,baggage,b3
     ports:
       - "${FULFILLMENT_SERVICE_PORT:-8085}:8085"
     depends_on:
@@ -362,6 +378,8 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      zipkin:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8085/actuator/health | grep UP"]
       interval: 10s

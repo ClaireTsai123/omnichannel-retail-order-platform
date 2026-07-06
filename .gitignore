@@ -2,8 +2,10 @@
 target/
 .env
 Project_guide.md
+PROJECT_GUIDE_updated.md
 INTERVIEW_GUIDE.md
 .env.*
+.application-aws.yml
 .mvn/wrapper/maven-wrapper.jar
 *.iml
 .DS_Store
