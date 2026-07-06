@@ -1,82 +1,80 @@
-# Online Ordering System – API Documentation
+# API Documentation
 
 ## Base URL
-All requests go through the API Gateway:
-```
+
+All external requests are intended to go through the API Gateway:
+
+```text
 http://localhost:8080
 ```
 
----
+Individual services also expose their own container/local ports during Docker Compose development, but the gateway is the main entry point.
 
-## Authentication & Authorization
+## Authentication
 
-### Authentication
-* Uses JWT (Bearer Token)
-* Token is obtained via `/api/auth/login`
-* Token must be included in the request header
-```
+Authentication is JWT-based.
+
+1. Register or log in through `user-service`.
+2. Use the returned token as a bearer token.
+3. The gateway validates the token and propagates user context headers to downstream services.
+
+Header format:
+
+```text
 Authorization: Bearer <JWT_TOKEN>
 ```
 
-### Roles
-* `ROLE_CUSTOMER`
-* `ROLE_VENDOR`
-* `ROLE_ADMIN`
+Common roles used by the services:
 
-Role-based access control is enforced at the service level.
+- `CUSTOMER`
+- `VENDOR`
+- `ADMIN`
 
----
+Some service methods are protected with `@PreAuthorize`; several internal endpoints are also used by service-to-service calls.
 
 ## Common Response Format
 
-All APIs return a unified response structure:
+Most controller APIs return the shared `ApiResponse` shape:
+
 ```json
 {
   "success": true,
-  "code": 200,
   "message": "Success",
-  "data": {}
+  "data": {},
+  "code": 200
 }
 ```
 
-Error example:
-```json
-{
-  "success": false,
-  "code": 404,
-  "message": "Resource not found",
-  "data": null
-}
-```
+Some internal/simple service endpoints currently return DTOs directly or return no body. Those differences are noted below where relevant.
 
----
+## Auth APIs
 
-## Auth Service (User Service)
+### Register
 
-### Register User
-
-**Endpoint**
-```
+```http
 POST /api/auth/register
 ```
 
-**Request Body**
+Request:
+
 ```json
 {
   "username": "john",
   "password": "change-me",
-  "role": "ROLE_CUSTOMER"
+  "email": "john@example.com",
+  "phone": "555-0100",
+  "role": "CUSTOMER"
 }
 ```
 
 ### Login
 
-**Endpoint**
-```
+```http
 POST /api/auth/login
 ```
 
-**Request Body**
+Request:
+
 ```json
 {
   "username": "john",
@@ -84,227 +82,515 @@ POST /api/auth/login
 }
 ```
 
-**Response**
+Response data:
+
 ```json
 {
-  "success": true,
-  "code": 200,
-  "message": "Success",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiJ9..."
-  }
+  "token": "eyJhbGciOiJIUzI1NiJ9..."
 }
 ```
 
----
+## User APIs
 
-## User Service
+### Get User
 
-### Get User by ID
-
-**Endpoint**
-```
-GET /api/users/{id}
+```http
+GET /api/users/{userId}
 ```
 
-**Access**
-* ADMIN
-* User himself
+### List Users
 
-### Get All Users
-
-**Endpoint**
-```
+```http
 GET /api/users
 ```
 
-**Access**
-* ADMIN only
+### Update User
 
----
-
-## Menu Service
-
-### Get All Available Menu Items
-
-**Endpoint**
-```
-GET /api/menu/items
+```http
+PUT /api/users/{userId}
 ```
 
-**Access**
-* Public (no authentication required)
+Request:
 
-### Get Menu Items by Category
-
-**Endpoint**
-```
-GET /api/menu/category?category=Food
-```
-
-### Create Menu Item
-
-**Endpoint**
-```
-POST /api/menu/items
-```
-
-**Access**
-* `ROLE_VENDOR`
-* `ROLE_ADMIN`
-
-**Request Body**
 ```json
 {
-  "name": "Burger",
-  "description": "Beef burger",
-  "price": 8.99,
-  "category": "Food",
-  "imageUrl": "http://image.url",
-  "available": true
+  "username": "john",
+  "email": "john@example.com",
+  "phone": "555-0101",
+  "role": "CUSTOMER"
 }
 ```
 
-### Update Menu Item
+### Delete User
 
-**Endpoint**
-```
-PUT /api/menu/items/{id}
-```
-
-**Access**
-* `ROLE_VENDOR`
-* `ROLE_ADMIN`
-
-### Delete Menu Item
-
-**Endpoint**
-```
-DELETE /api/menu/items/{id}
+```http
+DELETE /api/users/{userId}
 ```
 
-**Access**
-* `ROLE_VENDOR`
-* `ROLE_ADMIN`
+## Catalog APIs
 
----
+### List Active Products
 
-## Cart Service (Redis)
-
-### Get Current User Cart
-
-**Endpoint**
+```http
+GET /api/catalog/products
 ```
+
+### Get Product by ID
+
+```http
+GET /api/catalog/products/{id}
+```
+
+### Get Product by SKU
+
+```http
+GET /api/catalog/products/sku/{sku}
+```
+
+### Get Products by Category
+
+```http
+GET /api/catalog/products/category?category=makeup
+```
+
+### Create Product
+
+```http
+POST /api/catalog/products
+```
+
+Access:
+
+- `ADMIN`
+- `VENDOR`
+
+Request:
+
+```json
+{
+  "sku": "SKU-1001",
+  "productName": "Hydrating Serum",
+  "brand": "Demo Brand",
+  "category": "skincare",
+  "description": "Lightweight daily serum",
+  "price": 29.99,
+  "imageUrl": "https://example.com/product.png",
+  "active": true
+}
+```
+
+### Update Product
+
+```http
+PUT /api/catalog/products/{id}
+```
+
+Access:
+
+- `ADMIN`
+- `VENDOR`
+
+### Delete Product
+
+```http
+DELETE /api/catalog/products/{id}
+```
+
+Access:
+
+- `ADMIN`
+
+## Cart APIs
+
+Cart APIs use the authenticated user context propagated by the gateway.
+
+### Get Cart
+
+```http
 GET /api/cart
-```
-
-**Headers**
-```
-Authorization: Bearer <JWT_TOKEN>
 ```
 
 ### Add Item to Cart
 
-**Endpoint**
-```
+```http
 POST /api/cart/items
 ```
 
-**Request Body**
+Request:
+
 ```json
 {
-  "menuItemId": 1,
+  "productId": 1,
   "quantity": 2
 }
 ```
 
-### Remove Item from Cart
+The service enriches the cart item with product SKU, name, brand, and price from `catalog-service`.
 
-**Endpoint**
+### Update Item Quantity
+
+```http
+PUT /api/cart/items/{itemId}?qty=3
 ```
-DELETE /api/cart/items/{menuItemId}
+
+### Remove Item
+
+```http
+DELETE /api/cart/items/{itemId}
 ```
 
 ### Clear Cart
 
-**Endpoint**
-```
+```http
 DELETE /api/cart/clear
 ```
 
----
-
-## Order Service
+## Order APIs
 
 ### Create Order
 
-**Endpoint**
-```
+```http
 POST /api/orders
 ```
 
+Access:
 
-**Description**
-* Reads cart data from Redis
-* Creates order in MySQL (sharded)
-* Publishes order event to message queue
+- `CUSTOMER`
+- `ADMIN`
+
+Request:
+
+```json
+{
+  "promotionCode": "SUMMER10",
+  "source": "WEB"
+}
+```
+
+Notes:
+
+- `userId` is populated from the authenticated request context.
+- `source` can be `WEB`, `MOBILE`, `STORE`, or `MARKETPLACE`.
+- Order data is stored through ShardingSphere.
+- Inventory reservation is performed during order creation.
+- The cart is cleared after order creation.
 
 ### Pay Order
 
-**Endpoint**
-```
+```http
 POST /api/orders/{orderId}/pay
 ```
 
+Access:
+
+- `CUSTOMER`
+- `ADMIN`
+
+Notes:
+
+- `order-service` calls `payment-service`.
+- Successful payment commits inventory and publishes an `ORDER_PAID` event.
+- Failed payment releases inventory and cancels the order.
 
 ### Cancel Order
 
-**Endpoint**
-```
+```http
 POST /api/orders/{orderId}/cancel
 ```
 
-**Access**
-* `(only if order is not PAID)` 
+Access:
 
-### Get Order by ID
+- `CUSTOMER`
 
-**Endpoint**
-```
+Only `CREATED` orders can be cancelled by this endpoint.
+
+### Get Order
+
+```http
 GET /api/orders/{orderId}
 ```
 
-**Access**
-* Order owner
-* `ROLE_ADMIN`
+Access:
 
-### Get Current User Orders
+- `CUSTOMER`
+- `ADMIN`
 
-**Endpoint**
-```
-GET /api/orders/my
-```
+### Get My Orders
 
-
-### Admin – Search Orders
-
-**Endpoints**
-```
-GET /api/orders
-GET /api/orders?status=PAID
+```http
+GET /api/orders/my?page=0&size=10
 ```
 
-**Access**
-* `ROLE_ADMIN`
+Access:
 
----
+- `CUSTOMER`
 
-## Error Handling Summary
+### Admin List/Search Orders
 
-* Validation errors → `400 Bad Request`
-* Unauthorized access → `401 Unauthorized`
-* Forbidden access → `403 Forbidden`
-* Resource not found → `404`
-* Downstream service unavailable → `503 Service Unavailable`
+```http
+GET /api/orders?page=0&size=10
+GET /api/orders?status=PAID&page=0&size=10
+```
 
-All errors return unified `ApiResponse` format.
+Access:
+
+- `ADMIN`
+
+Supported order statuses:
+
+- `CREATED`
+- `PAID`
+- `PAYMENT_FAILED`
+- `PROCESSING`
+- `SHIPPED`
+- `DELIVERED`
+- `CANCELLED`
+
+## Inventory APIs
+
+These endpoints are used by the order workflow and can also be useful for local testing.
+
+### Get Inventory by SKU
+
+```http
+GET /api/inventory/{sku}
+```
+
+### Reserve Inventory
+
+```http
+POST /api/inventory/reserve
+```
+
+Request:
+
+```json
+{
+  "orderId": 1001,
+  "items": [
+    {
+      "sku": "SKU-1001",
+      "quantity": 2
+    }
+  ]
+}
+```
+
+### Commit Inventory
+
+```http
+POST /api/inventory/commit/{orderId}
+```
+
+### Release Inventory
+
+```http
+POST /api/inventory/release/{orderId}
+```
+
+## Payment APIs
+
+### Authorize Payment
+
+```http
+POST /api/payments/authorize
+```
+
+Access:
+
+- `CUSTOMER`
+
+Request:
+
+```json
+{
+  "orderId": 1001,
+  "userId": 1,
+  "amount": 49.99,
+  "paymentMethod": "CREDIT_CARD",
+  "idempotencyKey": "pay-1001"
+}
+```
+
+### Simulate Authorization Failure
+
+```http
+POST /api/payments/authorize/fail
+```
+
+Access:
+
+- `ADMIN`
+
+This endpoint exists for Saga/failure-path testing.
+
+### Refund Payment
+
+```http
+POST /api/payments/{paymentId}/refund
+```
+
+Access:
+
+- `ADMIN`
+
+### Mark Payment Failed
+
+```http
+POST /api/payments/{paymentId}/fail
+```
+
+Access:
+
+- `ADMIN`
+
+## Ledger APIs
+
+### Get Ledger Entries by Order
+
+```http
+GET /api/ledger/orders/{orderId}
+```
+
+Access:
+
+- `CUSTOMER`
+- `ADMIN`
+
+### Get Ledger Entries by Payment
+
+```http
+GET /api/ledger/payments/{paymentId}
+```
+
+Access:
+
+- `CUSTOMER`
+- `ADMIN`
+
+## Fulfillment APIs
+
+### Get Fulfillment by Order
+
+```http
+GET /api/fulfillment/orders/{orderId}
+```
+
+Access:
+
+- `CUSTOMER`
+- `ADMIN`
+
+### Update Fulfillment Status
+
+```http
+PATCH /api/fulfillment/orders/{orderId}/status
+```
+
+Access:
+
+- `VENDOR`
+- `ADMIN`
+- `CUSTOMER`
+
+Request:
+
+```json
+{
+  "status": "SHIPPED"
+}
+```
+
+Supported fulfillment statuses:
+
+- `CREATED`
+- `PROCESSING`
+- `SHIPPED`
+- `DELIVERED`
+- `CANCELLED`
+
+Updating fulfillment status publishes a `fulfillment-events` Kafka message consumed by `order-service`.
+
+## Promotion APIs
+
+### Validate Promotion
+
+```http
+GET /api/promotions/{code}?source=WEB
+```
+
+Supported sources:
+
+- `WEB`
+- `MOBILE`
+- `STORE`
+- `MARKETPLACE`
+
+### Create Promotion
+
+```http
+POST /api/promotions
+```
+
+Access:
+
+- `ADMIN`
+- `VENDOR`
+- `CUSTOMER`
+
+Request:
+
+```json
+{
+  "code": "SUMMER10",
+  "discountPercentage": 10,
+  "active": true,
+  "startTime": "2026-07-01T00:00:00",
+  "endTime": "2026-08-01T00:00:00",
+  "allowedSources": ["WEB", "MOBILE"]
+}
+```
+
+### Update Promotion
+
+```http
+PUT /api/promotions/{id}
+```
+
+Access:
+
+- `ADMIN`
+- `VENDOR`
+
+### Delete Promotion
+
+```http
+DELETE /api/promotions/{id}
+```
+
+Access:
+
+- `ADMIN`
+- `VENDOR`
+
+## Kafka Side Effects
+
+Some APIs trigger asynchronous Kafka flows:
+
+| API Action                    | Event Topic          | Consumer                          |
+|-------------------------------|----------------------|-----------------------------------|
+| Pay order successfully        | `order-events`       | `fulfillment-service`             |
+| Authorize/refund/fail payment | `payment-events`     | `ledger-service`, `order-service` |
+| Update fulfillment status     | `fulfillment-events` | `order-service`                   |
+
+## Error Handling
+
+The common exception handler maps application errors into API error responses. Typical HTTP outcomes include:
+
+- `400 Bad Request` for validation or illegal state transitions
+- `401 Unauthorized` for missing/invalid authentication
+- `403 Forbidden` for insufficient role permissions
+- `404 Not Found` for missing resources
+- `503 Service Unavailable` for downstream service failures
+
+Most errors use the shared response shape with `success=false`.
