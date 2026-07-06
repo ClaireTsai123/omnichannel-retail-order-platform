@@ -1,13 +1,21 @@
 .idea/
 target/
 .env
-Project_guide.md
 PROJECT_GUIDE_updated.md
 INTERVIEW_GUIDE.md
 .env.*
-application-aws.yml
 CI_CD.md
 Jenkinsfile
 .mvn/wrapper/maven-wrapper.jar
 *.iml
 .DS_Store
+# Local / environment-specific Spring profiles
+**/application-aws.yml
+
+# Local project notes
+Project_guide.md
+PROJECT_GUIDE.md
+project_guide.md
+
+# Maven build outputs
+**/target/
