@@ -4,7 +4,7 @@
 
 Omnichannel Retail Order Platform is a multi-module Spring Boot microservices project that models an end-to-end retail order workflow: user authentication, product browsing, cart management, promotion validation, order creation, inventory reservation, payment authorization, ledger auditing, and fulfillment status updates.
 
-The project is designed as a recruiter/interviewer-friendly backend system that demonstrates practical Java microservice patterns without requiring managed cloud infrastructure. The current implementation is runnable locally with Docker Compose and includes service discovery, an API gateway, MySQL, Redis, Kafka, Prometheus, Grafana, OpenTelemetry, and Zipkin.
+The current implementation is runnable locally with Docker Compose and includes service discovery, an API gateway, MySQL, Redis, Kafka, Prometheus, Grafana, OpenTelemetry, and Zipkin.
 
 ## Architecture Summary
 
