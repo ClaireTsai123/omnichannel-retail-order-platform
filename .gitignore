@@ -4,6 +4,7 @@ target/
 PROJECT_GUIDE_updated.md
 INTERVIEW_GUIDE.md
 .env.*
+!.env.example
 CI_CD.md
 Jenkinsfile
 .mvn/wrapper/maven-wrapper.jar

@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     container_name: omnichannel-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root1234}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3307:3306"
     command:
@@ -60,7 +60,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
@@ -92,7 +92,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
@@ -157,7 +157,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
@@ -204,7 +204,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       OTEL_SERVICE_NAME: promotion-service
@@ -239,7 +239,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -281,7 +281,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
@@ -320,7 +320,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
@@ -359,7 +359,7 @@ services:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-root1234}
+      DB_PASSWORD: ${DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_DEFAULT_ZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
@@ -498,7 +498,7 @@ services:
     container_name: omnichannel-grafana
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
     ports:
       - "3000:3000"
     volumes:

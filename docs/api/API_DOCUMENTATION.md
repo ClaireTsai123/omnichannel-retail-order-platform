@@ -64,7 +64,7 @@ POST /api/auth/register
 ```json
 {
   "username": "john",
-  "password": "password123",
+  "password": "change-me",
   "role": "ROLE_CUSTOMER"
 }
 ```
@@ -80,7 +80,7 @@ POST /api/auth/login
 ```json
 {
   "username": "john",
-  "password": "password123"
+  "password": "change-me"
 }
 ```
 
