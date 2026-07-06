@@ -5,7 +5,9 @@ Project_guide.md
 PROJECT_GUIDE_updated.md
 INTERVIEW_GUIDE.md
 .env.*
-.application-aws.yml
+application-aws.yml
+CI_CD.md
+Jenkinsfile
 .mvn/wrapper/maven-wrapper.jar
 *.iml
 .DS_Store
