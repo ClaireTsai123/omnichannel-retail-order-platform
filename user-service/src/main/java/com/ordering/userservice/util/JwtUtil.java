@@ -1,22 +1,28 @@
 package com.ordering.userservice.util;
 
-import com.ordering.common.utils.JwtSecretKey;
 import com.ordering.userservice.entity.User;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.security.Key;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
 public class JwtUtil {
-   // private static final String SECRET_KEY = "MySecretKeyForJWTTokenGenerationMustBeLongEnough";
-   // private static final long EXPIRATION_TIME = 1800000;
-    private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000L;// for 24 hours test
+    private final String secret;
+    private final long accessTokenExpirationMs;
+
+    public JwtUtil(
+            @Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.access-token-expiration-ms}") long accessTokenExpirationMs) {
+        this.secret = secret;
+        this.accessTokenExpirationMs = accessTokenExpirationMs;
+    }
 
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(JwtSecretKey.SECRET_KEY));
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(User user) {
@@ -25,7 +31,7 @@ public class JwtUtil {
                 .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }

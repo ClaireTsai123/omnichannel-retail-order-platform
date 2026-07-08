@@ -2,9 +2,9 @@ package com.ordering.apigateway.filter;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.apache.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -14,21 +14,22 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.security.Key;
-
-import static com.ordering.common.utils.JwtSecretKey.SECRET_KEY;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class JwtGatewayFilter implements GlobalFilter, Ordered {
+    private final String secret;
+
+    public JwtGatewayFilter(@Value("${app.jwt.secret}") String secret) {
+        this.secret = secret;
+    }
 
     private Key signingKey() {
-        return Keys.hmacShaKeyFor(
-                Decoders.BASE64.decode(SECRET_KEY)
-        );
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
        String path = exchange.getRequest().getURI().getPath();
-        System.out.println("GATEWAY PATH = " + exchange.getRequest().getURI().getPath());
 
         // Allow public endpoints
         if (path.startsWith("/api/auth")
@@ -40,7 +41,6 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
                 || path.startsWith("/actuator/info")
                 || path.startsWith("/actuator/prometheus")
         ||path.startsWith("/actuator/metrics")) {
-            System.out.println("WHITELIST HIT");
             return chain.filter(exchange);
         }
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
@@ -60,8 +60,10 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
             // Forward identity to downstream services
             ServerWebExchange mutated = exchange.mutate()
                     .request(r -> r.headers(h -> {
-                        h.add("X-User-Id", userId);
-                        h.add("X-User-Role", role);
+                        h.remove("X-User-Id");
+                        h.remove("X-User-Role");
+                        h.set("X-User-Id", userId);
+                        h.set("X-User-Role", role);
                     }))
                     .build();
             return chain.filter(mutated);

@@ -20,7 +20,7 @@ public class AuthController {
     }
     
     @PostMapping("/login")
-    public ApiResponse<Map<String, String>> login(@RequestBody LoginRequest request) {
+    public ApiResponse<Map<String, String>> login(@Valid @RequestBody LoginRequest request) {
         String token = userService.login(request.getUsername(), request.getPassword());
         return ApiResponse.success(Map.of("token", token));
     }
