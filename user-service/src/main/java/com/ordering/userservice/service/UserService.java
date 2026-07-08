@@ -3,6 +3,7 @@ package com.ordering.userservice.service;
 import com.ordering.common.dto.UserDTO;
 import com.ordering.common.exception.ForbiddenException;
 import com.ordering.common.exception.ResourceNotFoundException;
+import com.ordering.userservice.dto.AuthResponse;
 import com.ordering.userservice.dto.RegisterRequest;
 import com.ordering.userservice.entity.User;
 import com.ordering.userservice.util.JwtUtil;
@@ -25,6 +26,7 @@ public class UserService  {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
 
 
     public UserDTO register(RegisterRequest request) {
@@ -41,16 +43,25 @@ public class UserService  {
         return convertToDTO(userRepository.save(user));
     }
 
-    public String login(String username, String password) {
+    public AuthResponse login(String username, String password) {
        try {
            Authentication authentication = new UsernamePasswordAuthenticationToken(username, password);
            Authentication authenticated = authenticationManager.authenticate(authentication);
            User user = (User) authenticated.getPrincipal();
 
-           return jwtUtil.generateToken(user);
+           return buildAuthResponse(user, refreshTokenService.createRefreshToken(user));
        }catch (BadCredentialsException ex) {
            throw new ForbiddenException("Invalid username or password");
        }
+    }
+
+    public AuthResponse refresh(String refreshToken) {
+        RefreshTokenService.RotatedRefreshToken rotatedToken = refreshTokenService.rotate(refreshToken);
+        return buildAuthResponse(rotatedToken.user(), rotatedToken.refreshToken());
+    }
+
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
     }
 
     public UserDTO getUserById(Long id) {
@@ -92,5 +103,13 @@ public class UserService  {
         userRepository.deleteById(userId);
     }
 
+    private AuthResponse buildAuthResponse(User user, String refreshToken) {
+        return new AuthResponse(
+                jwtUtil.generateToken(user),
+                refreshToken,
+                "Bearer",
+                jwtUtil.getAccessTokenExpirationMs()
+        );
+    }
 
 }

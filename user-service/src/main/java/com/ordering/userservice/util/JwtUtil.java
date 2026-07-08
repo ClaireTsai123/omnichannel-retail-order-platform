@@ -35,6 +35,10 @@ public class JwtUtil {
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
+
+    public long getAccessTokenExpirationMs() {
+        return accessTokenExpirationMs;
+    }
     
     public Claims extractClaims(String token) {
         return Jwts.parserBuilder()
