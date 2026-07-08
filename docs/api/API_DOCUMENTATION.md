@@ -12,11 +12,12 @@ Individual services also expose their own container/local ports during Docker Co
 
 ## Authentication
 
-Authentication is JWT-based.
+Authentication uses JWT access tokens and DB-backed refresh tokens.
 
 1. Register or log in through `user-service`.
-2. Use the returned token as a bearer token.
-3. The gateway validates the token and propagates user context headers to downstream services.
+2. Use the returned `accessToken` as a bearer token.
+3. Use the returned `refreshToken` only with refresh/logout endpoints.
+4. The gateway validates access tokens and propagates user context headers to downstream services.
 
 Header format:
 
@@ -86,7 +87,40 @@ Response data:
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9..."
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "opaque-refresh-token",
+  "tokenType": "Bearer",
+  "expiresIn": 86400000
+}
+```
+
+### Refresh Token
+
+```http
+POST /api/auth/refresh
+```
+
+Request:
+
+```json
+{
+  "refreshToken": "opaque-refresh-token"
+}
+```
+
+Response data uses the same shape as login and rotates the refresh token.
+
+### Logout
+
+```http
+POST /api/auth/logout
+```
+
+Request:
+
+```json
+{
+  "refreshToken": "opaque-refresh-token"
 }
 ```
 

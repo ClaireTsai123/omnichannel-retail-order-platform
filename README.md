@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Omnichannel Retail Order Platform is a multi-module Spring Boot microservices project that models an end-to-end retail order workflow: user authentication, product browsing, cart management, promotion validation, order creation, inventory reservation, payment authorization, ledger auditing, and fulfillment status updates.
+Omnichannel Retail Order Platform is a multi-module Spring Boot microservices project that models an end-to-end retail order workflow: user authentication with JWT access tokens and DB-backed refresh tokens, product browsing, cart management, promotion validation, order creation, inventory reservation, payment authorization, ledger auditing, and fulfillment status updates.
 
 The current implementation is runnable locally with Docker Compose and includes service discovery, an API gateway, MySQL, Redis, Kafka, Prometheus, Grafana, OpenTelemetry, and Zipkin.
 
@@ -23,9 +23,9 @@ The platform combines synchronous HTTP/Feign calls for request orchestration wit
 
 | Module                | Port | Responsibility                                                                                    |
 |-----------------------|-----:|---------------------------------------------------------------------------------------------------|
-| `api-gateway`         | 8080 | Spring Cloud Gateway routing, JWT-aware gateway filtering, service discovery routing              |
+| `api-gateway`         | 8080 | Spring Cloud Gateway routing, JWT access-token validation, trusted user header propagation        |
 | `eureka-server`       | 8761 | Local service discovery registry                                                                  |
-| `user-service`        | 8081 | User registration, login, user lookup                                                             |
+| `user-service`        | 8081 | User registration, login, refresh token rotation, logout, user lookup                             |
 | `catalog-service`     | 8082 | Product catalog APIs and Redis-backed caching                                                     |
 | `cart-service`        | 8083 | Shopping cart APIs backed by Redis                                                                |
 | `order-service`       | 8084 | Order orchestration, ShardingSphere order persistence, inventory/payment/fulfillment coordination |
@@ -82,7 +82,7 @@ The shared `common` module also defines additional topic constants and DLQ topic
 - Spring Cloud 2025.x
 - Spring Cloud Gateway
 - Netflix Eureka
-- Spring Security and JWT
+- Spring Security, JWT, and DB-backed refresh tokens
 - Spring Data JPA / Hibernate
 - OpenFeign
 - Apache Kafka
@@ -186,6 +186,8 @@ Use `docker compose down -v` only when you intentionally want to remove local pe
 - Multi-module Maven project with a shared `common` module.
 - Clear service boundaries for users, catalog, cart, orders, inventory, payment, ledger, fulfillment, and promotions.
 - API Gateway routes external requests to service-discovered backend services.
+- JWT access-token validation at the gateway with downstream user context propagation.
+- DB-backed refresh token rotation and logout in `user-service`.
 - Local Docker Compose stack for repeatable end-to-end development and verification.
 - Kafka-backed asynchronous flows for payment, ledger, fulfillment, and order status updates.
 - Synchronous Feign orchestration for the core order creation/payment path.
@@ -235,6 +237,7 @@ Implemented locally:
 - MySQL, Redis, Kafka, Eureka, Prometheus, Grafana, and Zipkin
 - API Gateway routing
 - Core order, payment, inventory, ledger, fulfillment, promotion, catalog, cart, and user workflows
+- JWT login, protected gateway access, refresh token rotation, and logout
 - Kafka producers and consumers for the active event flows listed above
 - Prometheus metrics and Grafana provisioning
 - OpenTelemetry + Zipkin tracing for the core order path
