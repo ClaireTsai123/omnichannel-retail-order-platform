@@ -6,7 +6,6 @@ import com.ordering.common.domain.PaymentStatus;
 import com.ordering.common.dto.*;
 import com.ordering.common.event.OrderEvent;
 import com.ordering.common.event.OrderEventType;
-import com.ordering.common.event.OrderPaidEvent;
 import com.ordering.common.exception.BadRequestException;
 import com.ordering.common.exception.ResourceNotFoundException;
 import com.ordering.orderservice.client.CartClient;
@@ -159,12 +158,6 @@ public class OrderServiceImpl implements OrderService {
         orderEvent.setSource(saved.getSource());
         orderEvent.setOccurredAt(LocalDateTime.now());
         orderEventProducer.publish(orderEvent);
-
-        // publish event
-        OrderPaidEvent event = new OrderPaidEvent();
-        event.setOrderId(saved.getId());
-        event.setUserId(saved.getUserId());
-        event.setTotalAmount(saved.getTotalAmount());
 
         return saved;
     }

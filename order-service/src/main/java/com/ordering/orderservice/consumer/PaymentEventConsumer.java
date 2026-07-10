@@ -22,7 +22,8 @@ public class PaymentEventConsumer {
                 + ", orderId=" + event.getOrderId());
         switch (event.getEventType()) {
             case PAYMENT_AUTHORIZED ->
-                    orderService.updateStatus(event.getOrderId(), OrderStatus.PAID);
+                    System.out.println("PAYMENT_AUTHORIZED acknowledged; payOrder owns the PAID transition, orderId="
+                            + event.getOrderId());
             case PAYMENT_FAILED -> {
                 inventoryClient.releaseInventory(event.getOrderId());
                 orderService.updateStatus(event.getOrderId(), OrderStatus.PAYMENT_FAILED);
