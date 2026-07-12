@@ -17,6 +17,8 @@ public interface OrderService {
 
     Order cancelOrder(Long orderId, Long userId);
 
+    Order handlePaymentFailed(Long orderId);
+
     void updateStatus(Long orderId, OrderStatus status);
 
     Page<OrderDTO> getAllOrders(Pageable pageable);

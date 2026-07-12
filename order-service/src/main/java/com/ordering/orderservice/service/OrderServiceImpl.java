@@ -140,9 +140,7 @@ public class OrderServiceImpl implements OrderService {
         paymentRequest.setIdempotencyKey("pay-" + orderId);
         PaymentResponse paymentResponse = paymentClient.authorizePayment(paymentRequest);
         if (paymentResponse.getStatus() != PaymentStatus.AUTHORIZED) {
-            inventoryClient.releaseInventory(orderId);
-            order.setStatus(OrderStatus.CANCELLED);
-            return orderRepository.save(order);
+            return handlePaymentFailed(orderId);
         }
         order.setStatus(OrderStatus.PAID);
         Order saved = orderRepository.save(order);
@@ -160,6 +158,27 @@ public class OrderServiceImpl implements OrderService {
         orderEventProducer.publish(orderEvent);
 
         return saved;
+    }
+
+    @Override
+    @Transactional
+    public Order handlePaymentFailed(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (order.getStatus() == OrderStatus.PAYMENT_FAILED
+                || order.getStatus() == OrderStatus.CANCELLED) {
+            return order;
+        }
+        if (order.getStatus() != OrderStatus.CREATED) {
+            System.out.println("Ignoring payment failure for orderId="
+                    + orderId
+                    + ", status="
+                    + order.getStatus());
+            return order;
+        }
+        inventoryClient.releaseInventory(orderId);
+        order.setStatus(OrderStatus.PAYMENT_FAILED);
+        return order;
     }
 
     @Override
