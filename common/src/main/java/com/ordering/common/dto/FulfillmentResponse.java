@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @Data
 public class FulfillmentResponse {
     private Long id;
+    private String fulfillmentNo;
     private Long orderId;
     private Long userId;
     private FulfillmentStatus status;

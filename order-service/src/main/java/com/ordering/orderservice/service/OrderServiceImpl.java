@@ -342,8 +342,11 @@ public class OrderServiceImpl implements OrderService {
                     || nextStatus == OrderStatus.CANCELLED;
             case PAID -> nextStatus == OrderStatus.PROCESSING
                     || nextStatus == OrderStatus.SHIPPED
+                    || nextStatus == OrderStatus.DELIVERED
                     || nextStatus == OrderStatus.CANCELLED;
-            case PROCESSING -> nextStatus == OrderStatus.SHIPPED;
+            case PROCESSING -> nextStatus == OrderStatus.SHIPPED
+                    || nextStatus == OrderStatus.DELIVERED
+                    || nextStatus == OrderStatus.CANCELLED;
             case SHIPPED -> nextStatus == OrderStatus.DELIVERED;
             case DELIVERED, PAYMENT_FAILED, CANCELLED -> false;
         };

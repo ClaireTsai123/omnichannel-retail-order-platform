@@ -1,42 +1,38 @@
-package com.ordering.fulfillmentservice.entity;
+package com.ordering.orderservice.entity;
 
 import com.ordering.common.domain.FulfillmentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "fulfillments",
+        name = "order_fulfillment_status",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_fulfillment_order_no",
-                columnNames = {"order_id", "fulfillment_no"}
+                name = "uk_order_fulfillment_status_fulfillment_id",
+                columnNames = "fulfillment_id"
         )
 )
 @Data
-public class Fulfillment {
+public class OrderFulfillmentStatus {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fulfillment_no", nullable = false)
+    @Column(name = "fulfillment_id", nullable = false)
+    private Long fulfillmentId;
+
+    @Column(name = "fulfillment_no")
     private String fulfillmentNo;
 
     @Column(name = "order_id", nullable = false)
     private Long orderId;
 
-    @Column(nullable = false)
-    private Long userId;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private FulfillmentStatus status;
-
-    @CreationTimestamp
-    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;

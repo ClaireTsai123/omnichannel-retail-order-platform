@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class FulfillmentStatusUpdatedEvent {
     private String eventId;
+    private Long fulfillmentId;
+    private String fulfillmentNo;
     private Long orderId;
     private FulfillmentStatus status;
     private LocalDateTime occurredAt;

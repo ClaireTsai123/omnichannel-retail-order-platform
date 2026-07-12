@@ -1,12 +1,14 @@
 package com.ordering.fulfillmentservice.controller;
 
+import com.ordering.common.dto.CreateFulfillmentRequest;
 import com.ordering.common.dto.FulfillmentResponse;
 import com.ordering.common.dto.UpdateFulfillmentStatusRequest;
 import com.ordering.fulfillmentservice.service.FulfillmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 
 @RestController
@@ -17,14 +19,28 @@ public class FulfillmentController {
 
     @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN')")
     @GetMapping("/orders/{orderId}")
-    public FulfillmentResponse getByOrderId(@PathVariable Long orderId) {
+    public List<FulfillmentResponse> getByOrderId(@PathVariable Long orderId) {
         return fulfillmentService.getByOrderId(orderId);
     }
+
+    @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN')")
+    @GetMapping("/{fulfillmentId}")
+    public FulfillmentResponse getById(@PathVariable Long fulfillmentId) {
+        return fulfillmentService.getById(fulfillmentId);
+    }
+
+    @PreAuthorize("hasAnyRole('VENDOR','ADMIN')")
+    @PostMapping("/orders/{orderId}")
+    public FulfillmentResponse createFulfillment(@PathVariable Long orderId,
+                                                 @RequestBody CreateFulfillmentRequest request) {
+        return fulfillmentService.createFulfillment(orderId, request.getUserId(), request.getFulfillmentNo());
+    }
+
     @PreAuthorize("hasAnyRole('VENDOR','ADMIN','CUSTOMER')")
-    @PatchMapping ("/orders/{orderId}/status")
-    public FulfillmentResponse updateStatus(@PathVariable Long orderId,
+    @PatchMapping ("/{fulfillmentId}/status")
+    public FulfillmentResponse updateStatus(@PathVariable Long fulfillmentId,
                                             @RequestBody UpdateFulfillmentStatusRequest request) {
-        return fulfillmentService.updateStatus(orderId, request.getStatus());
+        return fulfillmentService.updateStatus(fulfillmentId, request.getStatus());
     }
 
 }
