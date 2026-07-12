@@ -19,4 +19,5 @@ public class OrderEvent {
     private BigDecimal totalAmount;
     private OrderSource source;
     private LocalDateTime occurredAt;
+    private Integer version;
 }

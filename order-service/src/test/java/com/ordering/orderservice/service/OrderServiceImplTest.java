@@ -3,10 +3,14 @@ package com.ordering.orderservice.service;
 import com.ordering.common.domain.OrderStatus;
 import com.ordering.orderservice.client.InventoryClient;
 import com.ordering.orderservice.entity.Order;
+import com.ordering.orderservice.entity.OrderStatusHistory;
 import com.ordering.orderservice.repository.OrderRepository;
+import com.ordering.orderservice.repository.OrderStatusHistoryRepository;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -18,39 +22,81 @@ class OrderServiceImplTest {
     void handlePaymentFailedReleasesInventoryAndMarksCreatedOrderPaymentFailed() {
         Order order = orderWithStatus(OrderStatus.CREATED);
         AtomicInteger releaseCalls = new AtomicInteger();
-        OrderServiceImpl orderService = orderService(order, releaseCalls);
+        List<OrderStatusHistory> history = new ArrayList<>();
+        OrderServiceImpl orderService = orderService(order, releaseCalls, history);
 
-        Order result = orderService.handlePaymentFailed(1001L);
+        Order result = orderService.handlePaymentFailed(1001L, "payment-event-1", "PAYMENT_EVENT");
 
         assertThat(releaseCalls).hasValue(1);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).getPreviousStatus()).isEqualTo(OrderStatus.CREATED);
+        assertThat(history.get(0).getNewStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+        assertThat(history.get(0).getEventId()).isEqualTo("payment-event-1");
     }
 
     @Test
     void handlePaymentFailedIsIdempotentForAlreadyFailedOrder() {
         Order order = orderWithStatus(OrderStatus.PAYMENT_FAILED);
         AtomicInteger releaseCalls = new AtomicInteger();
-        OrderServiceImpl orderService = orderService(order, releaseCalls);
+        List<OrderStatusHistory> history = new ArrayList<>();
+        OrderServiceImpl orderService = orderService(order, releaseCalls, history);
 
         Order result = orderService.handlePaymentFailed(1001L);
 
         assertThat(releaseCalls).hasValue(0);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+        assertThat(history).isEmpty();
     }
 
     @Test
     void handlePaymentFailedDoesNotReleaseInventoryForPaidOrder() {
         Order order = orderWithStatus(OrderStatus.PAID);
         AtomicInteger releaseCalls = new AtomicInteger();
-        OrderServiceImpl orderService = orderService(order, releaseCalls);
+        List<OrderStatusHistory> history = new ArrayList<>();
+        OrderServiceImpl orderService = orderService(order, releaseCalls, history);
 
         Order result = orderService.handlePaymentFailed(1001L);
 
         assertThat(releaseCalls).hasValue(0);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(history).isEmpty();
     }
 
-    private OrderServiceImpl orderService(Order order, AtomicInteger releaseCalls) {
+    @Test
+    void updateStatusRecordsAuditHistoryForFulfillmentEvent() {
+        Order order = orderWithStatus(OrderStatus.PAID);
+        AtomicInteger releaseCalls = new AtomicInteger();
+        List<OrderStatusHistory> history = new ArrayList<>();
+        OrderServiceImpl orderService = orderService(order, releaseCalls, history);
+
+        orderService.updateStatus(1001L, OrderStatus.PROCESSING,
+                "FULFILLMENT_PROCESSING", "FULFILLMENT_EVENT", "fulfillment-event-1");
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PROCESSING);
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).getPreviousStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(history.get(0).getNewStatus()).isEqualTo(OrderStatus.PROCESSING);
+        assertThat(history.get(0).getEventId()).isEqualTo("fulfillment-event-1");
+    }
+
+    @Test
+    void updateStatusIgnoresInvalidLateFulfillmentEvent() {
+        Order order = orderWithStatus(OrderStatus.DELIVERED);
+        AtomicInteger releaseCalls = new AtomicInteger();
+        List<OrderStatusHistory> history = new ArrayList<>();
+        OrderServiceImpl orderService = orderService(order, releaseCalls, history);
+
+        orderService.updateStatus(1001L, OrderStatus.PROCESSING,
+                "FULFILLMENT_PROCESSING", "FULFILLMENT_EVENT", "late-event-1");
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.DELIVERED);
+        assertThat(history).isEmpty();
+    }
+
+    private OrderServiceImpl orderService(Order order,
+                                          AtomicInteger releaseCalls,
+                                          List<OrderStatusHistory> history) {
         return new OrderServiceImpl(
                 repositoryReturning(order),
                 null,
@@ -60,6 +106,7 @@ class OrderServiceImplTest {
                 null,
                 null,
                 null,
+                historyRepository(history),
                 null
         );
     }
@@ -74,6 +121,23 @@ class OrderServiceImplTest {
                     }
                     if (method.getName().equals("toString")) {
                         return "OrderRepository test proxy";
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                }
+        );
+    }
+
+    private OrderStatusHistoryRepository historyRepository(List<OrderStatusHistory> history) {
+        return (OrderStatusHistoryRepository) Proxy.newProxyInstance(
+                OrderStatusHistoryRepository.class.getClassLoader(),
+                new Class<?>[]{OrderStatusHistoryRepository.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("save")) {
+                        history.add((OrderStatusHistory) args[0]);
+                        return args[0];
+                    }
+                    if (method.getName().equals("toString")) {
+                        return "OrderStatusHistoryRepository test proxy";
                     }
                     throw new UnsupportedOperationException(method.getName());
                 }

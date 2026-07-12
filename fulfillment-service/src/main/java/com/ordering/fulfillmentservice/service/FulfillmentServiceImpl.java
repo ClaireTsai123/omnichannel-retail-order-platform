@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class FulfillmentServiceImpl implements FulfillmentService {
@@ -59,8 +62,11 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         fulfillment.setStatus(fulfillmentStatus);
         Fulfillment saved = fulfillmentRepository.save(fulfillment);
         FulfillmentStatusUpdatedEvent event = new FulfillmentStatusUpdatedEvent();
+        event.setEventId(UUID.randomUUID().toString());
         event.setOrderId(saved.getOrderId());
         event.setStatus(saved.getStatus());
+        event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
         fulfillmentEventProducer.publishStatusUpdatedEvent(event);
 
         return toResponse(saved);

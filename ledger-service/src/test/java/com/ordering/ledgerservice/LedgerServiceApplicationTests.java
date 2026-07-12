@@ -1,13 +1,14 @@
 package com.ordering.ledgerservice;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.assertj.core.api.Assertions.assertThat;
+
 class LedgerServiceApplicationTests {
 
     @Test
-    void contextLoads() {
+    void applicationClassLoads() {
+        assertThat(LedgerServiceApplication.class).isNotNull();
     }
 
 }

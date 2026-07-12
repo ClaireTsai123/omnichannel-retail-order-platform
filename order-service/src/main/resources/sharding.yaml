@@ -28,6 +28,20 @@ rules:
             shardingColumn: order_id
             shardingAlgorithmName: orderitem-inline
 
+      order_status_history:
+        actualDataNodes: ds${0..1}.order_status_history
+        databaseStrategy:
+          standard:
+            shardingColumn: order_id
+            shardingAlgorithmName: orderstatushistory-inline
+
+      processed_kafka_events:
+        actualDataNodes: ds${0..1}.processed_kafka_events
+        databaseStrategy:
+          standard:
+            shardingColumn: order_id
+            shardingAlgorithmName: processedkafkaevent-inline
+
     shardingAlgorithms:
       order-inline:
         type: INLINE
@@ -35,6 +49,16 @@ rules:
           algorithm-expression: ds${id % 2}
 
       orderitem-inline:
+        type: INLINE
+        props:
+          algorithm-expression: ds${order_id % 2}
+
+      orderstatushistory-inline:
+        type: INLINE
+        props:
+          algorithm-expression: ds${order_id % 2}
+
+      processedkafkaevent-inline:
         type: INLINE
         props:
           algorithm-expression: ds${order_id % 2}

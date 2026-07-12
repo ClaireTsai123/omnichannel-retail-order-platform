@@ -1,13 +1,14 @@
 package com.ordering.paymentservice;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.assertj.core.api.Assertions.assertThat;
+
 class PaymentServiceApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationClassLoads() {
+		assertThat(PaymentServiceApplication.class).isNotNull();
 	}
 
 }

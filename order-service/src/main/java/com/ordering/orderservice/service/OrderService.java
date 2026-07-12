@@ -19,7 +19,11 @@ public interface OrderService {
 
     Order handlePaymentFailed(Long orderId);
 
+    Order handlePaymentFailed(Long orderId, String eventId, String source);
+
     void updateStatus(Long orderId, OrderStatus status);
+
+    void updateStatus(Long orderId, OrderStatus status, String reason, String source, String eventId);
 
     Page<OrderDTO> getAllOrders(Pageable pageable);
     Page<OrderDTO> getOrdersByStatus(OrderStatus status, Pageable pageable);

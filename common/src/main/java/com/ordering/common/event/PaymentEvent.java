@@ -18,4 +18,5 @@ public class PaymentEvent {
     private Long userId;
     private BigDecimal amount;
     private LocalDateTime occurredAt;
+    private Integer version;
 }

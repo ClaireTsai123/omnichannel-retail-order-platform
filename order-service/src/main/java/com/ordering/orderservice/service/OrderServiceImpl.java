@@ -13,12 +13,14 @@ import com.ordering.orderservice.client.InventoryClient;
 import com.ordering.orderservice.client.PaymentClient;
 import com.ordering.orderservice.client.PromotionClient;
 import com.ordering.orderservice.entity.Order;
+import com.ordering.orderservice.entity.OrderStatusHistory;
 import com.ordering.orderservice.metrics.OrderMetrics;
 import com.ordering.orderservice.producer.OrderEventProducer;
 import com.ordering.orderservice.repository.OrderRepository;
 import com.ordering.orderservice.util.IdGenerator;
 import com.ordering.orderservice.entity.OrderItem;
 import com.ordering.orderservice.repository.OrderItemRepository;
+import com.ordering.orderservice.repository.OrderStatusHistoryRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -41,6 +43,7 @@ public class OrderServiceImpl implements OrderService {
     private final PromotionClient promotionClient;
     private final OrderEventProducer orderEventProducer;
     private final OrderMetrics orderMetrics;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
     // for sharding
     private final IdGenerator idGenerator;
@@ -90,6 +93,8 @@ public class OrderServiceImpl implements OrderService {
         order.setSource(orderSource);
         order.setStatus(OrderStatus.CREATED);
         Order savedOrder = orderRepository.save(order);
+        recordStatusHistory(savedOrder.getId(), null, OrderStatus.CREATED,
+                "ORDER_CREATED", "ORDER_SERVICE", null);
         //2, save order item
         for (CartItemDTO item : cart.getItems()) {
             OrderItem orderItem = new OrderItem();
@@ -113,6 +118,7 @@ public class OrderServiceImpl implements OrderService {
         event.setTotalAmount(savedOrder.getTotalAmount());
         event.setSource(savedOrder.getSource());
         event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
 
         orderEventProducer.publish(event);
 
@@ -140,9 +146,9 @@ public class OrderServiceImpl implements OrderService {
         paymentRequest.setIdempotencyKey("pay-" + orderId);
         PaymentResponse paymentResponse = paymentClient.authorizePayment(paymentRequest);
         if (paymentResponse.getStatus() != PaymentStatus.AUTHORIZED) {
-            return handlePaymentFailed(orderId);
+            return handlePaymentFailed(orderId, null, "PAYMENT_SYNC");
         }
-        order.setStatus(OrderStatus.PAID);
+        transitionOrderStatus(order, OrderStatus.PAID, "PAYMENT_AUTHORIZED", "PAYMENT_SYNC", null);
         Order saved = orderRepository.save(order);
 
         inventoryClient.commitInventory(orderId);
@@ -155,6 +161,7 @@ public class OrderServiceImpl implements OrderService {
         orderEvent.setTotalAmount(saved.getTotalAmount());
         orderEvent.setSource(saved.getSource());
         orderEvent.setOccurredAt(LocalDateTime.now());
+        orderEvent.setVersion(1);
         orderEventProducer.publish(orderEvent);
 
         return saved;
@@ -163,6 +170,12 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Order handlePaymentFailed(Long orderId) {
+        return handlePaymentFailed(orderId, null, "ORDER_SERVICE");
+    }
+
+    @Override
+    @Transactional
+    public Order handlePaymentFailed(Long orderId, String eventId, String source) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         if (order.getStatus() == OrderStatus.PAYMENT_FAILED
@@ -177,7 +190,7 @@ public class OrderServiceImpl implements OrderService {
             return order;
         }
         inventoryClient.releaseInventory(orderId);
-        order.setStatus(OrderStatus.PAYMENT_FAILED);
+        transitionOrderStatus(order, OrderStatus.PAYMENT_FAILED, "PAYMENT_FAILED", source, eventId);
         return order;
     }
 
@@ -214,7 +227,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BadRequestException("Only CREATED orders can be cancelled");
         }
         inventoryClient.releaseInventory(orderId);
-        order.setStatus(OrderStatus.CANCELLED);
+        transitionOrderStatus(order, OrderStatus.CANCELLED, "ORDER_CANCELLED", "ORDER_SERVICE", null);
 
         Order saved = orderRepository.save(order);
         OrderEvent event = new OrderEvent();
@@ -225,6 +238,7 @@ public class OrderServiceImpl implements OrderService {
         event.setTotalAmount(saved.getTotalAmount());
         event.setSource(saved.getSource());
         event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
         orderEventProducer.publish(event);
 
         return saved;
@@ -233,15 +247,26 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void updateStatus(Long orderId, OrderStatus status) {
+        updateStatus(orderId, status, "STATUS_UPDATED", "ORDER_SERVICE", null);
+    }
+
+    @Override
+    @Transactional
+    public void updateStatus(Long orderId, OrderStatus status, String reason, String source, String eventId) {
         Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         if (order.getStatus() == status) {
             return;
         }
         if (!isValidStatusTransition(order.getStatus(), status)) {
-            throw new BadRequestException("Invalid order status transition from "
-                    + order.getStatus() + " to " + status);
+            System.out.println("Ignoring invalid order status transition, orderId="
+                    + orderId
+                    + ", from="
+                    + order.getStatus()
+                    + ", to="
+                    + status);
+            return;
         }
-        order.setStatus(status);
+        transitionOrderStatus(order, status, reason, source, eventId);
     }
 
     @Override
@@ -279,6 +304,35 @@ public class OrderServiceImpl implements OrderService {
         dto.setUnitPrice(item.getUnitPrice());
         dto.setQuantity(item.getQuantity());
         return dto;
+    }
+
+    private void transitionOrderStatus(Order order,
+                                       OrderStatus nextStatus,
+                                       String reason,
+                                       String source,
+                                       String eventId) {
+        OrderStatus previousStatus = order.getStatus();
+        if (previousStatus == nextStatus) {
+            return;
+        }
+        order.setStatus(nextStatus);
+        recordStatusHistory(order.getId(), previousStatus, nextStatus, reason, source, eventId);
+    }
+
+    private void recordStatusHistory(Long orderId,
+                                     OrderStatus previousStatus,
+                                     OrderStatus newStatus,
+                                     String reason,
+                                     String source,
+                                     String eventId) {
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(orderId);
+        history.setPreviousStatus(previousStatus);
+        history.setNewStatus(newStatus);
+        history.setReason(reason);
+        history.setSource(source);
+        history.setEventId(eventId);
+        orderStatusHistoryRepository.save(history);
     }
 
     private boolean isValidStatusTransition(OrderStatus currentStatus, OrderStatus nextStatus) {

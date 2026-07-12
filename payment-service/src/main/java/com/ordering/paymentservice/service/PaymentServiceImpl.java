@@ -58,6 +58,7 @@ public class PaymentServiceImpl implements PaymentService {
         event.setUserId(saved.getUserId());
         event.setAmount(saved.getAmount());
         event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
 
         paymentEventProducer.publish(event);
         return toResponse(saved);
@@ -94,6 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
         event.setUserId(saved.getUserId());
         event.setAmount(saved.getAmount());
         event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
 
         paymentEventProducer.publish(event);
         paymentMetrics.recordPaymentFailed();
@@ -119,6 +121,7 @@ public class PaymentServiceImpl implements PaymentService {
         event.setUserId(saved.getUserId());
         event.setAmount(saved.getAmount());
         event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
 
         paymentEventProducer.publish(event);
 
@@ -148,6 +151,7 @@ public class PaymentServiceImpl implements PaymentService {
         event.setUserId(saved.getUserId());
         event.setAmount(saved.getAmount());
         event.setOccurredAt(LocalDateTime.now());
+        event.setVersion(1);
 
         paymentEventProducer.publish(event);
 
