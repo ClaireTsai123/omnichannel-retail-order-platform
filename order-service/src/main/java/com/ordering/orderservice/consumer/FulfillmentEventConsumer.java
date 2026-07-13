@@ -2,6 +2,7 @@ package com.ordering.orderservice.consumer;
 
 import com.ordering.common.domain.FulfillmentStatus;
 import com.ordering.common.domain.OrderStatus;
+import com.ordering.common.event.FulfillmentLineEvent;
 import com.ordering.common.event.FulfillmentStatusUpdatedEvent;
 import com.ordering.common.kafka.KafkaTopics;
 import com.ordering.orderservice.entity.OrderFulfillmentStatus;
@@ -69,8 +70,35 @@ public class FulfillmentEventConsumer {
         status.setFulfillmentNo(event.getFulfillmentNo());
         status.setOrderId(event.getOrderId());
         status.setStatus(event.getStatus());
+        status.setLineCount(lineCount(event));
+        status.setShippedLineCount(shippedLineCount(event));
+        status.setDeliveredLineCount(deliveredLineCount(event));
         orderFulfillmentStatusRepository.save(status);
         return true;
+    }
+
+    private int lineCount(FulfillmentStatusUpdatedEvent event) {
+        return event.getLines() == null ? 0 : event.getLines().size();
+    }
+
+    private int shippedLineCount(FulfillmentStatusUpdatedEvent event) {
+        if (event.getLines() == null) {
+            return 0;
+        }
+        return (int) event.getLines().stream()
+                .map(FulfillmentLineEvent::getStatus)
+                .filter(status -> status == FulfillmentStatus.SHIPPED || status == FulfillmentStatus.DELIVERED)
+                .count();
+    }
+
+    private int deliveredLineCount(FulfillmentStatusUpdatedEvent event) {
+        if (event.getLines() == null) {
+            return 0;
+        }
+        return (int) event.getLines().stream()
+                .map(FulfillmentLineEvent::getStatus)
+                .filter(status -> status == FulfillmentStatus.DELIVERED)
+                .count();
     }
 
     private boolean isLateOrRegressive(FulfillmentStatus currentStatus, FulfillmentStatus incomingStatus) {

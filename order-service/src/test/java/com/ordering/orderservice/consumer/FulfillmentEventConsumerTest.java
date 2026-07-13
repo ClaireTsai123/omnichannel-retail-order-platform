@@ -2,6 +2,7 @@ package com.ordering.orderservice.consumer;
 
 import com.ordering.common.domain.FulfillmentStatus;
 import com.ordering.common.domain.OrderStatus;
+import com.ordering.common.event.FulfillmentLineEvent;
 import com.ordering.common.event.FulfillmentStatusUpdatedEvent;
 import com.ordering.orderservice.entity.OrderFulfillmentStatus;
 import com.ordering.orderservice.entity.ProcessedKafkaEvent;
@@ -40,6 +41,9 @@ class FulfillmentEventConsumerTest {
                 OrderStatus.DELIVERED
         );
         assertThat(processedEvents).containsExactlyInAnyOrder("event-1", "event-2", "event-3", "event-4");
+        assertThat(fulfillmentStatuses.get(12L).getLineCount()).isEqualTo(2);
+        assertThat(fulfillmentStatuses.get(12L).getShippedLineCount()).isEqualTo(2);
+        assertThat(fulfillmentStatuses.get(12L).getDeliveredLineCount()).isEqualTo(2);
     }
 
     @Test
@@ -93,6 +97,17 @@ class FulfillmentEventConsumerTest {
         event.setFulfillmentId(fulfillmentId);
         event.setFulfillmentNo(fulfillmentNo);
         event.setOrderId(1001L);
+        event.setStatus(status);
+        event.setLines(List.of(line(1L, status), line(2L, status)));
+        return event;
+    }
+
+    private FulfillmentLineEvent line(Long orderItemId, FulfillmentStatus status) {
+        FulfillmentLineEvent event = new FulfillmentLineEvent();
+        event.setLineId(orderItemId + 100L);
+        event.setOrderItemId(orderItemId);
+        event.setSku("SKU-" + orderItemId);
+        event.setQuantity(1);
         event.setStatus(status);
         return event;
     }

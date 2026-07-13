@@ -1,17 +1,14 @@
 package com.ordering.common.dto;
 
+import com.ordering.common.domain.FulfillmentStatus;
 import lombok.Data;
 
-import java.math.BigDecimal;
-
 @Data
-public class OrderItemDTO {
-
+public class FulfillmentLineResponse {
     private Long id;
+    private Long orderItemId;
     private Long productId;
     private String sku;
-    private String brand;
-    private String productName;
-    private BigDecimal unitPrice;
     private Integer quantity;
+    private FulfillmentStatus status;
 }

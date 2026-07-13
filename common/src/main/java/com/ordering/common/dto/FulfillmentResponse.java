@@ -4,6 +4,7 @@ import com.ordering.common.domain.FulfillmentStatus;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class FulfillmentResponse {
@@ -12,6 +13,7 @@ public class FulfillmentResponse {
     private Long orderId;
     private Long userId;
     private FulfillmentStatus status;
+    private List<FulfillmentLineResponse> lines;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

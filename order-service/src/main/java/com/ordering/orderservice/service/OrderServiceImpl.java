@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -96,6 +97,7 @@ public class OrderServiceImpl implements OrderService {
         recordStatusHistory(savedOrder.getId(), null, OrderStatus.CREATED,
                 "ORDER_CREATED", "ORDER_SERVICE", null);
         //2, save order item
+        List<OrderItem> savedItems = new ArrayList<>();
         for (CartItemDTO item : cart.getItems()) {
             OrderItem orderItem = new OrderItem();
             orderItem.setId(idGenerator.nextId()); // assign id
@@ -106,7 +108,7 @@ public class OrderServiceImpl implements OrderService {
             orderItem.setProductName(item.getProductName());
             orderItem.setUnitPrice(item.getPrice());
             orderItem.setQuantity(item.getQuantity());
-            orderItemRepository.save(orderItem);
+            savedItems.add(orderItemRepository.save(orderItem));
         }
 
         System.out.println("Saving order item, orderId = " + orderId);
@@ -116,6 +118,7 @@ public class OrderServiceImpl implements OrderService {
         event.setOrderId(savedOrder.getId());
         event.setUserId(savedOrder.getUserId());
         event.setTotalAmount(savedOrder.getTotalAmount());
+        event.setItems(savedItems.stream().map(this::apply).toList());
         event.setSource(savedOrder.getSource());
         event.setOccurredAt(LocalDateTime.now());
         event.setVersion(1);
@@ -159,6 +162,9 @@ public class OrderServiceImpl implements OrderService {
         orderEvent.setOrderId(saved.getId());
         orderEvent.setUserId(saved.getUserId());
         orderEvent.setTotalAmount(saved.getTotalAmount());
+        orderEvent.setItems(orderItemRepository.findByOrderId(saved.getId()).stream()
+                .map(this::apply)
+                .toList());
         orderEvent.setSource(saved.getSource());
         orderEvent.setOccurredAt(LocalDateTime.now());
         orderEvent.setVersion(1);
@@ -297,6 +303,7 @@ public class OrderServiceImpl implements OrderService {
 
     private OrderItemDTO apply(OrderItem item) {
         OrderItemDTO dto = new OrderItemDTO();
+        dto.setId(item.getId());
         dto.setProductId(item.getProductId());
         dto.setSku(item.getSku());
         dto.setBrand(item.getBrand());

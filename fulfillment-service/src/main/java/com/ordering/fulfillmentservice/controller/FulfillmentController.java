@@ -3,6 +3,7 @@ package com.ordering.fulfillmentservice.controller;
 import com.ordering.common.dto.CreateFulfillmentRequest;
 import com.ordering.common.dto.FulfillmentResponse;
 import com.ordering.common.dto.UpdateFulfillmentStatusRequest;
+import com.ordering.common.dto.UpdateFulfillmentLineStatusRequest;
 import com.ordering.fulfillmentservice.service.FulfillmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,7 +34,8 @@ public class FulfillmentController {
     @PostMapping("/orders/{orderId}")
     public FulfillmentResponse createFulfillment(@PathVariable Long orderId,
                                                  @RequestBody CreateFulfillmentRequest request) {
-        return fulfillmentService.createFulfillment(orderId, request.getUserId(), request.getFulfillmentNo());
+        return fulfillmentService.createFulfillment(orderId, request.getUserId(), request.getFulfillmentNo(),
+                request.getLines());
     }
 
     @PreAuthorize("hasAnyRole('VENDOR','ADMIN','CUSTOMER')")
@@ -41,6 +43,14 @@ public class FulfillmentController {
     public FulfillmentResponse updateStatus(@PathVariable Long fulfillmentId,
                                             @RequestBody UpdateFulfillmentStatusRequest request) {
         return fulfillmentService.updateStatus(fulfillmentId, request.getStatus());
+    }
+
+    @PreAuthorize("hasAnyRole('VENDOR','ADMIN')")
+    @PatchMapping ("/{fulfillmentId}/lines/{lineId}/status")
+    public FulfillmentResponse updateLineStatus(@PathVariable Long fulfillmentId,
+                                                @PathVariable Long lineId,
+                                                @RequestBody UpdateFulfillmentLineStatusRequest request) {
+        return fulfillmentService.updateLineStatus(fulfillmentId, lineId, request.getStatus());
     }
 
 }

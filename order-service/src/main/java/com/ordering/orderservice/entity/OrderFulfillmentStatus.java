@@ -3,11 +3,13 @@ package com.ordering.orderservice.entity;
 import com.ordering.common.domain.FulfillmentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
+@DynamicUpdate
 @Table(
         name = "order_fulfillment_status",
         uniqueConstraints = @UniqueConstraint(
@@ -29,6 +31,15 @@ public class OrderFulfillmentStatus {
 
     @Column(name = "order_id", nullable = false)
     private Long orderId;
+
+    @Column(name = "line_count")
+    private Integer lineCount;
+
+    @Column(name = "shipped_line_count")
+    private Integer shippedLineCount;
+
+    @Column(name = "delivered_line_count")
+    private Integer deliveredLineCount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

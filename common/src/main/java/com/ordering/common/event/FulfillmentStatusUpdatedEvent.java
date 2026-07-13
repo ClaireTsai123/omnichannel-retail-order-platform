@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -16,6 +17,7 @@ public class FulfillmentStatusUpdatedEvent {
     private String fulfillmentNo;
     private Long orderId;
     private FulfillmentStatus status;
+    private List<FulfillmentLineEvent> lines;
     private LocalDateTime occurredAt;
     private Integer version;
 }
