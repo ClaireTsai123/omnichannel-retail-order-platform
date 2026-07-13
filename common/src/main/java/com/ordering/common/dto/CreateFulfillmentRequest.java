@@ -8,5 +8,9 @@ import java.util.List;
 public class CreateFulfillmentRequest {
     private Long userId;
     private String fulfillmentNo;
+    private String nodeId;
+    private String nodeName;
+    private String nodeType;
+    private String locationCode;
     private List<FulfillmentLineRequest> lines;
 }

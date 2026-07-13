@@ -16,6 +16,10 @@ public class FulfillmentStatusUpdatedEvent {
     private Long fulfillmentId;
     private String fulfillmentNo;
     private Long orderId;
+    private String nodeId;
+    private String nodeName;
+    private String nodeType;
+    private String locationCode;
     private FulfillmentStatus status;
     private List<FulfillmentLineEvent> lines;
     private LocalDateTime occurredAt;

@@ -40,6 +40,7 @@ public class OrderEventConsumer {
         line.setProductId(item.getProductId());
         line.setSku(item.getSku());
         line.setQuantity(item.getQuantity());
+        line.setOrderedQuantity(item.getQuantity());
         return line;
     }
 }

@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FulfillmentServiceImplTest {
 
@@ -69,10 +70,69 @@ class FulfillmentServiceImplTest {
         assertThat(event.getFulfillmentId()).isEqualTo(second.getId());
         assertThat(event.getFulfillmentNo()).isEqualTo("F-1001-2");
         assertThat(event.getOrderId()).isEqualTo(1001L);
+        assertThat(event.getNodeId()).isEqualTo("DEFAULT_NODE");
+        assertThat(event.getNodeType()).isEqualTo("WAREHOUSE");
+        assertThat(event.getLocationCode()).isEqualTo("DEFAULT_LOCATION");
         assertThat(event.getStatus()).isEqualTo(FulfillmentStatus.SHIPPED);
         assertThat(event.getLines()).hasSize(1);
         assertThat(event.getLines().get(0).getStatus()).isEqualTo(FulfillmentStatus.SHIPPED);
         assertThat(event.getVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void acceptsValidSplitQuantityAcrossMultipleFulfillmentsForSameOrderItem() {
+        List<Fulfillment> store = new ArrayList<>();
+        List<FulfillmentLine> lines = new ArrayList<>();
+        CapturingFulfillmentEventProducer producer = new CapturingFulfillmentEventProducer();
+        FulfillmentServiceImpl service = fulfillmentService(store, lines, producer);
+
+        FulfillmentResponse first = service.createFulfillment(1001L, 501L, "F-1001-1",
+                "NODE-SEA", "Seattle DC", "WAREHOUSE", "SEA",
+                List.of(lineRequest(9001L, "SKU-A", 2, 5)));
+        FulfillmentResponse second = service.createFulfillment(1001L, 501L, "F-1001-2",
+                "NODE-SFO", "San Francisco Store", "STORE", "SFO",
+                List.of(lineRequest(9001L, "SKU-A", 3, 5)));
+
+        assertThat(first.getNodeId()).isEqualTo("NODE-SEA");
+        assertThat(second.getNodeId()).isEqualTo("NODE-SFO");
+        assertThat(service.getByOrderId(1001L)).hasSize(2);
+        assertThat(lines).extracting(FulfillmentLine::getQuantity).containsExactly(2, 3);
+        assertThat(lines).extracting(FulfillmentLine::getOrderedQuantity).containsExactly(5, 5);
+    }
+
+    @Test
+    void rejectsFulfillmentQuantityThatExceedsOrderedQuantityAcrossFulfillments() {
+        List<Fulfillment> store = new ArrayList<>();
+        List<FulfillmentLine> lines = new ArrayList<>();
+        CapturingFulfillmentEventProducer producer = new CapturingFulfillmentEventProducer();
+        FulfillmentServiceImpl service = fulfillmentService(store, lines, producer);
+        service.createFulfillment(1001L, 501L, "F-1001-1",
+                List.of(lineRequest(9001L, "SKU-A", 2, 3)));
+
+        assertThatThrownBy(() -> service.createFulfillment(1001L, 501L, "F-1001-2",
+                List.of(lineRequest(9001L, "SKU-A", 2, 3))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exceeds ordered quantity");
+
+        assertThat(service.getByOrderId(1001L)).hasSize(1);
+        assertThat(lines).hasSize(1);
+    }
+
+    @Test
+    void duplicateFulfillmentCreateDoesNotDoubleCountAllocatedQuantity() {
+        List<Fulfillment> store = new ArrayList<>();
+        List<FulfillmentLine> lines = new ArrayList<>();
+        CapturingFulfillmentEventProducer producer = new CapturingFulfillmentEventProducer();
+        FulfillmentServiceImpl service = fulfillmentService(store, lines, producer);
+
+        FulfillmentResponse first = service.createFulfillment(1001L, 501L, "F-1001-1",
+                List.of(lineRequest(9001L, "SKU-A", 2, 2)));
+        FulfillmentResponse duplicate = service.createFulfillment(1001L, 501L, "F-1001-1",
+                List.of(lineRequest(9001L, "SKU-A", 2, 2)));
+
+        assertThat(duplicate.getId()).isEqualTo(first.getId());
+        assertThat(lines).hasSize(1);
+        assertThat(lines.get(0).getQuantity()).isEqualTo(2);
     }
 
     @Test
@@ -227,6 +287,15 @@ class FulfillmentServiceImplTest {
                                 .filter(line -> line.getFulfillmentId().equals(fulfillmentId))
                                 .findFirst();
                     }
+                    if (method.getName().equals("findByOrderIdAndOrderItemId")) {
+                        Long orderId = (Long) args[0];
+                        Long orderItemId = (Long) args[1];
+                        return store.stream()
+                                .filter(line -> line.getOrderId().equals(orderId))
+                                .filter(line -> line.getOrderItemId().equals(orderItemId))
+                                .sorted(Comparator.comparing(FulfillmentLine::getId))
+                                .toList();
+                    }
                     if (method.getName().equals("save")) {
                         FulfillmentLine line = (FulfillmentLine) args[0];
                         if (line.getId() == null) {
@@ -244,11 +313,16 @@ class FulfillmentServiceImplTest {
     }
 
     private FulfillmentLineRequest lineRequest(Long orderItemId, String sku, Integer quantity) {
+        return lineRequest(orderItemId, sku, quantity, quantity);
+    }
+
+    private FulfillmentLineRequest lineRequest(Long orderItemId, String sku, Integer quantity, Integer orderedQuantity) {
         FulfillmentLineRequest request = new FulfillmentLineRequest();
         request.setOrderItemId(orderItemId);
         request.setProductId(orderItemId + 100L);
         request.setSku(sku);
         request.setQuantity(quantity);
+        request.setOrderedQuantity(orderedQuantity);
         return request;
     }
 

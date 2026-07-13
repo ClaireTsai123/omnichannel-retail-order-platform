@@ -18,12 +18,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class FulfillmentServiceImpl implements FulfillmentService {
+    private static final String DEFAULT_NODE_ID = "DEFAULT_NODE";
+    private static final String DEFAULT_NODE_NAME = "Default Fulfillment Node";
+    private static final String DEFAULT_NODE_TYPE = "WAREHOUSE";
+    private static final String DEFAULT_LOCATION_CODE = "DEFAULT_LOCATION";
 
     private final FulfillmentRepository fulfillmentRepository;
     private final FulfillmentLineRepository fulfillmentLineRepository;
@@ -48,20 +54,43 @@ public class FulfillmentServiceImpl implements FulfillmentService {
                                                  Long userId,
                                                  String fulfillmentNo,
                                                  List<FulfillmentLineRequest> lines) {
+        return createFulfillment(orderId, userId, fulfillmentNo, null, null, null, null, lines);
+    }
+
+    @Override
+    @Transactional
+    public FulfillmentResponse createFulfillment(Long orderId,
+                                                 Long userId,
+                                                 String fulfillmentNo,
+                                                 String nodeId,
+                                                 String nodeName,
+                                                 String nodeType,
+                                                 String locationCode,
+                                                 List<FulfillmentLineRequest> lines) {
         String normalizedFulfillmentNo = normalizeFulfillmentNo(orderId, fulfillmentNo);
         return fulfillmentRepository.findByOrderIdAndFulfillmentNo(orderId, normalizedFulfillmentNo)
                 .map(this::toResponse)
-                .orElseGet(() -> createNewFulfillment(orderId, userId, normalizedFulfillmentNo, lines));
+                .orElseGet(() -> createNewFulfillment(orderId, userId, normalizedFulfillmentNo,
+                        nodeId, nodeName, nodeType, locationCode, lines));
     }
 
     private FulfillmentResponse createNewFulfillment(Long orderId,
                                                      Long userId,
                                                      String fulfillmentNo,
+                                                     String nodeId,
+                                                     String nodeName,
+                                                     String nodeType,
+                                                     String locationCode,
                                                      List<FulfillmentLineRequest> lines) {
+        validateAllocation(orderId, lines);
         Fulfillment fulfillment = new Fulfillment();
         fulfillment.setFulfillmentNo(fulfillmentNo);
         fulfillment.setOrderId(orderId);
         fulfillment.setUserId(userId);
+        fulfillment.setNodeId(normalizeNodeValue(nodeId, DEFAULT_NODE_ID));
+        fulfillment.setNodeName(normalizeNodeValue(nodeName, DEFAULT_NODE_NAME));
+        fulfillment.setNodeType(normalizeNodeValue(nodeType, DEFAULT_NODE_TYPE));
+        fulfillment.setLocationCode(normalizeNodeValue(locationCode, DEFAULT_LOCATION_CODE));
         fulfillment.setStatus(FulfillmentStatus.CREATED);
         Fulfillment saved = fulfillmentRepository.save(fulfillment);
         createLines(saved, lines);
@@ -82,6 +111,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
             line.setProductId(lineRequest.getProductId());
             line.setSku(lineRequest.getSku());
             line.setQuantity(lineRequest.getQuantity());
+            line.setOrderedQuantity(resolveOrderedQuantity(fulfillment.getOrderId(), lineRequest));
             line.setStatus(FulfillmentStatus.CREATED);
             fulfillmentLineRepository.save(line);
         });
@@ -171,6 +201,10 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         event.setFulfillmentId(saved.getId());
         event.setFulfillmentNo(saved.getFulfillmentNo());
         event.setOrderId(saved.getOrderId());
+        event.setNodeId(saved.getNodeId());
+        event.setNodeName(saved.getNodeName());
+        event.setNodeType(saved.getNodeType());
+        event.setLocationCode(saved.getLocationCode());
         event.setStatus(saved.getStatus());
         event.setLines(fulfillmentLineRepository.findByFulfillmentIdOrderByIdAsc(saved.getId())
                 .stream()
@@ -187,6 +221,10 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         response.setFulfillmentNo(fulfillment.getFulfillmentNo());
         response.setOrderId(fulfillment.getOrderId());
         response.setUserId(fulfillment.getUserId());
+        response.setNodeId(fulfillment.getNodeId());
+        response.setNodeName(fulfillment.getNodeName());
+        response.setNodeType(fulfillment.getNodeType());
+        response.setLocationCode(fulfillment.getLocationCode());
         response.setStatus(fulfillment.getStatus());
         response.setLines(fulfillmentLineRepository.findByFulfillmentIdOrderByIdAsc(fulfillment.getId())
                 .stream()
@@ -245,6 +283,67 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         if (lineRequest.getQuantity() == null || lineRequest.getQuantity() <= 0) {
             throw new IllegalArgumentException("quantity must be greater than zero");
         }
+        if (lineRequest.getOrderedQuantity() != null && lineRequest.getOrderedQuantity() <= 0) {
+            throw new IllegalArgumentException("orderedQuantity must be greater than zero");
+        }
+    }
+
+    private void validateAllocation(Long orderId, List<FulfillmentLineRequest> lineRequests) {
+        if (lineRequests == null || lineRequests.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Integer> requestedByOrderItem = new HashMap<>();
+        for (FulfillmentLineRequest lineRequest : lineRequests) {
+            validateLine(lineRequest);
+            requestedByOrderItem.merge(lineRequest.getOrderItemId(), lineRequest.getQuantity(), Integer::sum);
+        }
+        if (requestedByOrderItem.size() != lineRequests.size()) {
+            throw new IllegalArgumentException("duplicate orderItemId is not allowed within one fulfillment");
+        }
+
+        for (FulfillmentLineRequest lineRequest : lineRequests) {
+            Integer orderedQuantity = resolveOrderedQuantity(orderId, lineRequest);
+            if (lineRequest.getQuantity() > orderedQuantity) {
+                throw new IllegalArgumentException("fulfillment quantity exceeds ordered quantity for orderItemId: "
+                        + lineRequest.getOrderItemId());
+            }
+
+            List<FulfillmentLine> existingLines = fulfillmentLineRepository.findByOrderIdAndOrderItemId(
+                    orderId,
+                    lineRequest.getOrderItemId()
+            );
+            Integer establishedOrderedQuantity = existingLines.stream()
+                    .map(FulfillmentLine::getOrderedQuantity)
+                    .filter(quantity -> quantity != null)
+                    .findFirst()
+                    .orElse(null);
+            if (establishedOrderedQuantity != null && !establishedOrderedQuantity.equals(orderedQuantity)) {
+                throw new IllegalArgumentException("orderedQuantity does not match existing allocation for orderItemId: "
+                        + lineRequest.getOrderItemId());
+            }
+
+            int allocatedQuantity = existingLines.stream()
+                    .filter(line -> line.getStatus() != FulfillmentStatus.CANCELLED)
+                    .mapToInt(FulfillmentLine::getQuantity)
+                    .sum();
+            if (allocatedQuantity + lineRequest.getQuantity() > orderedQuantity) {
+                throw new IllegalArgumentException("allocated fulfillment quantity exceeds ordered quantity for orderItemId: "
+                        + lineRequest.getOrderItemId());
+            }
+        }
+    }
+
+    private Integer resolveOrderedQuantity(Long orderId, FulfillmentLineRequest lineRequest) {
+        if (lineRequest.getOrderedQuantity() != null) {
+            return lineRequest.getOrderedQuantity();
+        }
+        return fulfillmentLineRepository.findByOrderIdAndOrderItemId(orderId, lineRequest.getOrderItemId())
+                .stream()
+                .map(FulfillmentLine::getOrderedQuantity)
+                .filter(quantity -> quantity != null)
+                .findFirst()
+                .orElse(lineRequest.getQuantity());
     }
 
     private FulfillmentLineResponse toLineResponse(FulfillmentLine line) {
@@ -254,6 +353,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         response.setProductId(line.getProductId());
         response.setSku(line.getSku());
         response.setQuantity(line.getQuantity());
+        response.setOrderedQuantity(line.getOrderedQuantity());
         response.setStatus(line.getStatus());
         return response;
     }
@@ -265,8 +365,16 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         event.setProductId(line.getProductId());
         event.setSku(line.getSku());
         event.setQuantity(line.getQuantity());
+        event.setOrderedQuantity(line.getOrderedQuantity());
         event.setStatus(line.getStatus());
         return event;
+    }
+
+    private String normalizeNodeValue(String value, String defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        return value.trim();
     }
 
     private String normalizeFulfillmentNo(Long orderId, String fulfillmentNo) {

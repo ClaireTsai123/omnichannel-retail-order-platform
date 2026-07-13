@@ -31,6 +31,18 @@ public class Fulfillment {
     @Column(nullable = false)
     private Long userId;
 
+    @Column(nullable = false)
+    private String nodeId;
+
+    @Column(nullable = false)
+    private String nodeName;
+
+    @Column(nullable = false)
+    private String nodeType;
+
+    @Column(nullable = false)
+    private String locationCode;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private FulfillmentStatus status;

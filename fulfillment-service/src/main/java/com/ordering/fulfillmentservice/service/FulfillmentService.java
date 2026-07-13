@@ -17,6 +17,15 @@ public interface FulfillmentService {
                                           String fulfillmentNo,
                                           List<FulfillmentLineRequest> lines);
 
+    FulfillmentResponse createFulfillment(Long orderId,
+                                          Long userId,
+                                          String fulfillmentNo,
+                                          String nodeId,
+                                          String nodeName,
+                                          String nodeType,
+                                          String locationCode,
+                                          List<FulfillmentLineRequest> lines);
+
     void cancelFulfillment(Long orderId);
 
     List<FulfillmentResponse> getByOrderId(Long orderId);

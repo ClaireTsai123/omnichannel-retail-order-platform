@@ -34,6 +34,9 @@ public class FulfillmentLine {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(nullable = false)
+    private Integer orderedQuantity;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private FulfillmentStatus status;

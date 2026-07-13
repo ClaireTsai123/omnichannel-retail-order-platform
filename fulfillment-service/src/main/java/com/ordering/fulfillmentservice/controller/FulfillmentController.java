@@ -35,6 +35,7 @@ public class FulfillmentController {
     public FulfillmentResponse createFulfillment(@PathVariable Long orderId,
                                                  @RequestBody CreateFulfillmentRequest request) {
         return fulfillmentService.createFulfillment(orderId, request.getUserId(), request.getFulfillmentNo(),
+                request.getNodeId(), request.getNodeName(), request.getNodeType(), request.getLocationCode(),
                 request.getLines());
     }
 

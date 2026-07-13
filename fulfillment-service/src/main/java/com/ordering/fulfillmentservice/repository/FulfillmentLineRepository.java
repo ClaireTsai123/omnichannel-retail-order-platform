@@ -11,5 +11,7 @@ public interface FulfillmentLineRepository extends JpaRepository<FulfillmentLine
 
     List<FulfillmentLine> findByOrderId(Long orderId);
 
+    List<FulfillmentLine> findByOrderIdAndOrderItemId(Long orderId, Long orderItemId);
+
     Optional<FulfillmentLine> findByIdAndFulfillmentId(Long id, Long fulfillmentId);
 }
