@@ -7,6 +7,7 @@ import com.ordering.common.dto.*;
 import com.ordering.common.event.OrderEvent;
 import com.ordering.common.event.OrderEventType;
 import com.ordering.common.exception.BadRequestException;
+import com.ordering.common.exception.ConflictException;
 import com.ordering.common.exception.ResourceNotFoundException;
 import com.ordering.orderservice.client.CartClient;
 import com.ordering.orderservice.client.InventoryClient;
@@ -21,17 +22,23 @@ import com.ordering.orderservice.util.IdGenerator;
 import com.ordering.orderservice.entity.OrderItem;
 import com.ordering.orderservice.repository.OrderItemRepository;
 import com.ordering.orderservice.repository.OrderStatusHistoryRepository;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
@@ -45,35 +52,32 @@ public class OrderServiceImpl implements OrderService {
     private final OrderEventProducer orderEventProducer;
     private final OrderMetrics orderMetrics;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final PlatformTransactionManager transactionManager;
 
     // for sharding
     private final IdGenerator idGenerator;
 
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
-    @Transactional
     public Order createOrder(CreateOrderRequest request) {
         Long userId = request.getUserId();
+        String idempotencyKey = normalizeIdempotencyKey(request.getIdempotencyKey());
+        if (idempotencyKey != null) {
+            Order existingOrder = inTransaction(() -> findExistingIdempotentOrder(userId, idempotencyKey));
+            if (existingOrder != null) {
+                return existingOrder;
+            }
+        }
 
         Long orderId = idGenerator.nextId();
-
         ApiResponse<CartDTO> response = cartClient.getCart(userId.toString());
         CartDTO cart = response.getData();
         if (cart == null || cart.getItems().isEmpty()) {
             throw new ResourceNotFoundException("Cart is empty");
         }
 
-        InventoryReserveRequest reserveRequest = new InventoryReserveRequest();
-        reserveRequest.setOrderId(orderId);
-        List<InventoryReserveItem> reserveItems = cart.getItems().stream()
-                .map(item -> {
-                    InventoryReserveItem reserveItem = new InventoryReserveItem();
-                    reserveItem.setSku(item.getSku());
-                    reserveItem.setQuantity(item.getQuantity());
-                    return reserveItem;
-                }).toList();
-        reserveRequest.setItems(reserveItems);
-        inventoryClient.reserveInventory(reserveRequest);
         //1, create order
         BigDecimal totalAmount = cart.getTotalPrice();
         OrderSource orderSource = request.getSource() == null ? OrderSource.WEB : request.getSource();
@@ -86,14 +90,76 @@ public class OrderServiceImpl implements OrderService {
                 totalAmount = totalAmount.multiply(discount);
             }
         }
+
+        OrderCreatedResult created = createNewOrder(request, idempotencyKey, orderId, cart, totalAmount, orderSource);
+        if (!created.newlyCreated()) {
+            return created.order();
+        }
+
+        try {
+            InventoryReserveRequest reserveRequest = new InventoryReserveRequest();
+            reserveRequest.setOrderId(orderId);
+            List<InventoryReserveItem> reserveItems = cart.getItems().stream()
+                    .map(item -> {
+                        InventoryReserveItem reserveItem = new InventoryReserveItem();
+                        reserveItem.setSku(item.getSku());
+                        reserveItem.setQuantity(item.getQuantity());
+                        return reserveItem;
+                    }).toList();
+            reserveRequest.setItems(reserveItems);
+            inventoryClient.reserveInventory(reserveRequest);
+        } catch (RuntimeException ex) {
+            markOrderCancelledAfterCreateFailure(orderId);
+            throw ex;
+        }
+
+        orderEventProducer.publish(created.toOrderEvent());
+        cartClient.clearCart(userId.toString());
+        orderMetrics.recordOrderCreation();
+
+        return created.order();
+    }
+
+    private OrderCreatedResult createNewOrder(CreateOrderRequest request,
+                                              String idempotencyKey,
+                                              Long orderId,
+                                              CartDTO cart,
+                                              BigDecimal totalAmount,
+                                              OrderSource orderSource) {
+        Long userId = request.getUserId();
+        try {
+            return inTransaction(() -> persistNewOrder(userId, idempotencyKey, orderId, cart, totalAmount, orderSource));
+        } catch (DataIntegrityViolationException ex) {
+            if (idempotencyKey == null) {
+                throw ex;
+            }
+            return inTransaction(() -> {
+                if (entityManager != null) {
+                    entityManager.clear();
+                }
+                Order existing = orderRepository.findByUserIdAndIdempotencyKey(userId, idempotencyKey)
+                        .orElseThrow(() -> ex);
+                return new OrderCreatedResult(existing, List.of(), false);
+            });
+        }
+    }
+
+    private OrderCreatedResult persistNewOrder(Long userId,
+                                               String idempotencyKey,
+                                               Long orderId,
+                                               CartDTO cart,
+                                               BigDecimal totalAmount,
+                                               OrderSource orderSource) {
         Order order = new Order();
         order.setId(orderId);// assigned first
         System.out.println("Creating order with ID = " + orderId);
         order.setUserId(userId);
+        order.setIdempotencyKey(idempotencyKey);
         order.setTotalAmount(totalAmount);
         order.setSource(orderSource);
         order.setStatus(OrderStatus.CREATED);
-        Order savedOrder = orderRepository.save(order);
+        Order savedOrder = orderRepository.saveAndFlush(order);
+
         recordStatusHistory(savedOrder.getId(), null, OrderStatus.CREATED,
                 "ORDER_CREATED", "ORDER_SERVICE", null);
         //2, save order item
@@ -112,92 +178,57 @@ public class OrderServiceImpl implements OrderService {
         }
 
         System.out.println("Saving order item, orderId = " + orderId);
-        OrderEvent event = new OrderEvent();
-        event.setEventId(UUID.randomUUID().toString());
-        event.setEventType(OrderEventType.ORDER_CREATED);
-        event.setOrderId(savedOrder.getId());
-        event.setUserId(savedOrder.getUserId());
-        event.setTotalAmount(savedOrder.getTotalAmount());
-        event.setItems(savedItems.stream().map(this::apply).toList());
-        event.setSource(savedOrder.getSource());
-        event.setOccurredAt(LocalDateTime.now());
-        event.setVersion(1);
+        return new OrderCreatedResult(savedOrder, savedItems, true);
+    }
 
-        orderEventProducer.publish(event);
+    private Order findExistingIdempotentOrder(Long userId, String idempotencyKey) {
+        return orderRepository.findByUserIdAndIdempotencyKey(userId, idempotencyKey)
+                .orElse(null);
+    }
 
-        //3. clear cart
-        cartClient.clearCart(userId.toString());
-        orderMetrics.recordOrderCreation();
-
-        return savedOrder;
+    private String normalizeIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return null;
+        }
+        return idempotencyKey.trim();
     }
 
     @Override
-    @Transactional
     public Order payOrder(Long orderId, Long userId) {
-        Order order = orderRepository.findByIdAndUserId(orderId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        if (order.getStatus() != OrderStatus.CREATED) {
-            throw new BadRequestException("Order cannot be paid");
-        }
+        Order paymentCandidate = inTransaction(() -> getPayableOrder(orderId, userId));
         // authorize payment through payment-service
         PaymentRequest paymentRequest = new PaymentRequest();
         paymentRequest.setOrderId(orderId);
         paymentRequest.setUserId(userId);
-        paymentRequest.setAmount(order.getTotalAmount());
+        paymentRequest.setAmount(paymentCandidate.getTotalAmount());
         paymentRequest.setPaymentMethod("CREDIT_CARD");
         paymentRequest.setIdempotencyKey("pay-" + orderId);
         PaymentResponse paymentResponse = paymentClient.authorizePayment(paymentRequest);
         if (paymentResponse.getStatus() != PaymentStatus.AUTHORIZED) {
             return handlePaymentFailed(orderId, null, "PAYMENT_SYNC");
         }
-        transitionOrderStatus(order, OrderStatus.PAID, "PAYMENT_AUTHORIZED", "PAYMENT_SYNC", null);
-        Order saved = orderRepository.save(order);
 
+        OrderPaidResult paid = inTransactionHandlingOptimisticConflict(() -> markOrderPaid(orderId, userId));
         inventoryClient.commitInventory(orderId);
+        orderEventProducer.publish(paid.toOrderEvent());
 
-        OrderEvent orderEvent = new OrderEvent();
-        orderEvent.setEventId(UUID.randomUUID().toString());
-        orderEvent.setEventType(OrderEventType.ORDER_PAID);
-        orderEvent.setOrderId(saved.getId());
-        orderEvent.setUserId(saved.getUserId());
-        orderEvent.setTotalAmount(saved.getTotalAmount());
-        orderEvent.setItems(orderItemRepository.findByOrderId(saved.getId()).stream()
-                .map(this::apply)
-                .toList());
-        orderEvent.setSource(saved.getSource());
-        orderEvent.setOccurredAt(LocalDateTime.now());
-        orderEvent.setVersion(1);
-        orderEventProducer.publish(orderEvent);
-
-        return saved;
+        return paid.order();
     }
 
     @Override
-    @Transactional
     public Order handlePaymentFailed(Long orderId) {
         return handlePaymentFailed(orderId, null, "ORDER_SERVICE");
     }
 
     @Override
-    @Transactional
     public Order handlePaymentFailed(Long orderId, String eventId, String source) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        if (order.getStatus() == OrderStatus.PAYMENT_FAILED
-                || order.getStatus() == OrderStatus.CANCELLED) {
-            return order;
+        PaymentFailureResult result = inTransactionHandlingOptimisticConflict(
+                () -> markPaymentFailed(orderId, eventId, source)
+        );
+        if (result.inventoryReleaseRequired()) {
+            inventoryClient.releaseInventory(orderId);
         }
-        if (order.getStatus() != OrderStatus.CREATED) {
-            System.out.println("Ignoring payment failure for orderId="
-                    + orderId
-                    + ", status="
-                    + order.getStatus());
-            return order;
-        }
-        inventoryClient.releaseInventory(orderId);
-        transitionOrderStatus(order, OrderStatus.PAYMENT_FAILED, "PAYMENT_FAILED", source, eventId);
-        return order;
+        return result.order();
     }
 
     @Override
@@ -225,40 +256,30 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public Order cancelOrder(Long orderId, Long userId) {
-        Order order = orderRepository.findByIdAndUserId(orderId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        if (order.getStatus() != OrderStatus.CREATED) {
-            throw new BadRequestException("Only CREATED orders can be cancelled");
-        }
+        OrderCancelledResult cancelled = inTransactionHandlingOptimisticConflict(
+                () -> markOrderCancelled(orderId, userId)
+        );
         inventoryClient.releaseInventory(orderId);
-        transitionOrderStatus(order, OrderStatus.CANCELLED, "ORDER_CANCELLED", "ORDER_SERVICE", null);
+        orderEventProducer.publish(cancelled.toOrderEvent());
 
-        Order saved = orderRepository.save(order);
-        OrderEvent event = new OrderEvent();
-        event.setEventId(UUID.randomUUID().toString());
-        event.setEventType(OrderEventType.ORDER_CANCELLED);
-        event.setOrderId(saved.getId());
-        event.setUserId(saved.getUserId());
-        event.setTotalAmount(saved.getTotalAmount());
-        event.setSource(saved.getSource());
-        event.setOccurredAt(LocalDateTime.now());
-        event.setVersion(1);
-        orderEventProducer.publish(event);
-
-        return saved;
+        return cancelled.order();
     }
 
     @Override
-    @Transactional
     public void updateStatus(Long orderId, OrderStatus status) {
         updateStatus(orderId, status, "STATUS_UPDATED", "ORDER_SERVICE", null);
     }
 
     @Override
-    @Transactional
     public void updateStatus(Long orderId, OrderStatus status, String reason, String source, String eventId) {
+        inTransactionHandlingOptimisticConflict(() -> {
+            updateStatusInTransaction(orderId, status, reason, source, eventId);
+            return null;
+        });
+    }
+
+    private void updateStatusInTransaction(Long orderId, OrderStatus status, String reason, String source, String eventId) {
         Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         if (order.getStatus() == status) {
             return;
@@ -273,6 +294,69 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
         transitionOrderStatus(order, status, reason, source, eventId);
+        orderRepository.saveAndFlush(order);
+    }
+
+    private Order getPayableOrder(Long orderId, Long userId) {
+        Order order = orderRepository.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (order.getStatus() != OrderStatus.CREATED) {
+            throw new BadRequestException("Order cannot be paid");
+        }
+        return order;
+    }
+
+    private OrderPaidResult markOrderPaid(Long orderId, Long userId) {
+        Order order = orderRepository.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (order.getStatus() != OrderStatus.CREATED) {
+            throw new BadRequestException("Order cannot be paid");
+        }
+        transitionOrderStatus(order, OrderStatus.PAID, "PAYMENT_AUTHORIZED", "PAYMENT_SYNC", null);
+        Order saved = orderRepository.saveAndFlush(order);
+        List<OrderItem> items = orderItemRepository.findByOrderId(saved.getId());
+        return new OrderPaidResult(saved, items);
+    }
+
+    private OrderCancelledResult markOrderCancelled(Long orderId, Long userId) {
+        Order order = orderRepository.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (order.getStatus() != OrderStatus.CREATED) {
+            throw new BadRequestException("Only CREATED orders can be cancelled");
+        }
+        transitionOrderStatus(order, OrderStatus.CANCELLED, "ORDER_CANCELLED", "ORDER_SERVICE", null);
+        return new OrderCancelledResult(orderRepository.saveAndFlush(order));
+    }
+
+    private void markOrderCancelledAfterCreateFailure(Long orderId) {
+        inTransactionHandlingOptimisticConflict(() -> {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+            if (order.getStatus() == OrderStatus.CREATED) {
+                transitionOrderStatus(order, OrderStatus.CANCELLED,
+                        "INVENTORY_RESERVATION_FAILED", "ORDER_SERVICE", null);
+                orderRepository.saveAndFlush(order);
+            }
+            return null;
+        });
+    }
+
+    private PaymentFailureResult markPaymentFailed(Long orderId, String eventId, String source) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (order.getStatus() == OrderStatus.PAYMENT_FAILED
+                || order.getStatus() == OrderStatus.CANCELLED) {
+            return new PaymentFailureResult(order, false);
+        }
+        if (order.getStatus() != OrderStatus.CREATED) {
+            System.out.println("Ignoring payment failure for orderId="
+                    + orderId
+                    + ", status="
+                    + order.getStatus());
+            return new PaymentFailureResult(order, false);
+        }
+        transitionOrderStatus(order, OrderStatus.PAYMENT_FAILED, "PAYMENT_FAILED", source, eventId);
+        return new PaymentFailureResult(orderRepository.saveAndFlush(order), true);
     }
 
     @Override
@@ -357,5 +441,83 @@ public class OrderServiceImpl implements OrderService {
             case SHIPPED -> nextStatus == OrderStatus.DELIVERED;
             case DELIVERED, PAYMENT_FAILED, CANCELLED -> false;
         };
+    }
+
+    private <T> T inTransaction(Supplier<T> supplier) {
+        if (transactionManager == null) {
+            return supplier.get();
+        }
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        return transactionTemplate.execute(status -> supplier.get());
+    }
+
+    private <T> T inTransactionHandlingOptimisticConflict(Supplier<T> supplier) {
+        try {
+            return inTransaction(supplier);
+        } catch (OptimisticLockingFailureException ex) {
+            throw new ConflictException("Order was updated by another request. Please reload and try again.");
+        }
+    }
+
+    private record OrderCreatedResult(Order order, List<OrderItem> items, boolean newlyCreated) {
+        private OrderEvent toOrderEvent() {
+            OrderEvent event = new OrderEvent();
+            event.setEventId(UUID.randomUUID().toString());
+            event.setEventType(OrderEventType.ORDER_CREATED);
+            event.setOrderId(order.getId());
+            event.setUserId(order.getUserId());
+            event.setTotalAmount(order.getTotalAmount());
+            event.setItems(items.stream().map(OrderCreatedResult::toOrderItemDTO).toList());
+            event.setSource(order.getSource());
+            event.setOccurredAt(LocalDateTime.now());
+            event.setVersion(1);
+            return event;
+        }
+
+        private static OrderItemDTO toOrderItemDTO(OrderItem item) {
+            OrderItemDTO dto = new OrderItemDTO();
+            dto.setId(item.getId());
+            dto.setProductId(item.getProductId());
+            dto.setSku(item.getSku());
+            dto.setBrand(item.getBrand());
+            dto.setProductName(item.getProductName());
+            dto.setUnitPrice(item.getUnitPrice());
+            dto.setQuantity(item.getQuantity());
+            return dto;
+        }
+    }
+
+    private record OrderPaidResult(Order order, List<OrderItem> items) {
+        private OrderEvent toOrderEvent() {
+            OrderEvent event = new OrderEvent();
+            event.setEventId(UUID.randomUUID().toString());
+            event.setEventType(OrderEventType.ORDER_PAID);
+            event.setOrderId(order.getId());
+            event.setUserId(order.getUserId());
+            event.setTotalAmount(order.getTotalAmount());
+            event.setItems(items.stream().map(OrderCreatedResult::toOrderItemDTO).toList());
+            event.setSource(order.getSource());
+            event.setOccurredAt(LocalDateTime.now());
+            event.setVersion(1);
+            return event;
+        }
+    }
+
+    private record OrderCancelledResult(Order order) {
+        private OrderEvent toOrderEvent() {
+            OrderEvent event = new OrderEvent();
+            event.setEventId(UUID.randomUUID().toString());
+            event.setEventType(OrderEventType.ORDER_CANCELLED);
+            event.setOrderId(order.getId());
+            event.setUserId(order.getUserId());
+            event.setTotalAmount(order.getTotalAmount());
+            event.setSource(order.getSource());
+            event.setOccurredAt(LocalDateTime.now());
+            event.setVersion(1);
+            return event;
+        }
+    }
+
+    private record PaymentFailureResult(Order order, boolean inventoryReleaseRequired) {
     }
 }

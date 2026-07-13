@@ -296,6 +296,7 @@ Request:
 
 ```json
 {
+  "idempotencyKey": "checkout-2026-07-12-user-1001-attempt-1",
   "promotionCode": "SUMMER10",
   "source": "WEB"
 }
@@ -304,6 +305,11 @@ Request:
 Notes:
 
 - `userId` is populated from the authenticated request context.
+- `idempotencyKey` is optional for backwards compatibility but recommended for checkout retries.
+- When the same authenticated user submits the same `idempotencyKey`, `order-service` returns the existing order instead of reserving inventory, publishing `ORDER_CREATED`, or clearing the cart again.
+- The order database enforces uniqueness on `(user_id, idempotency_key)` and the service reloads the existing order if a concurrent duplicate request loses the insert race.
+- Order rows use optimistic locking with a `version` column. Stale concurrent updates are returned as HTTP `409 Conflict`.
+- Order Service keeps local database transactions short around order/status/history writes; remote cart, inventory, promotion, and payment calls are performed outside those local transaction blocks.
 - `source` can be `WEB`, `MOBILE`, `STORE`, or `MARKETPLACE`.
 - Order data is stored through ShardingSphere.
 - Inventory reservation is performed during order creation.
@@ -324,7 +330,7 @@ Notes:
 
 - `order-service` calls `payment-service`.
 - Successful payment commits inventory and publishes an `ORDER_PAID` event.
-- Failed payment releases inventory and cancels the order.
+- Failed payment releases inventory only while the order is still `CREATED` and marks the order `PAYMENT_FAILED`.
 
 ### Cancel Order
 

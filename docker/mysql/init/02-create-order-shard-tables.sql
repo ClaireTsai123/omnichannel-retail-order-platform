@@ -1,21 +1,27 @@
 CREATE TABLE IF NOT EXISTS order_db_0.orders (
   id BIGINT NOT NULL,
+  version BIGINT DEFAULT NULL,
   user_id BIGINT DEFAULT NULL,
+  idempotency_key VARCHAR(255) DEFAULT NULL,
   total_amount DECIMAL(38,2) DEFAULT NULL,
   source ENUM('MARKETPLACE','MOBILE','STORE','WEB') DEFAULT NULL,
   status ENUM('CREATED','PAID','PAYMENT_FAILED','PROCESSING','SHIPPED','DELIVERED','CANCELLED') DEFAULT NULL,
   created_at DATETIME(6) DEFAULT NULL,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_orders_user_id_idempotency_key (user_id, idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS order_db_1.orders (
   id BIGINT NOT NULL,
+  version BIGINT DEFAULT NULL,
   user_id BIGINT DEFAULT NULL,
+  idempotency_key VARCHAR(255) DEFAULT NULL,
   total_amount DECIMAL(38,2) DEFAULT NULL,
   source ENUM('MARKETPLACE','MOBILE','STORE','WEB') DEFAULT NULL,
   status ENUM('CREATED','PAID','PAYMENT_FAILED','PROCESSING','SHIPPED','DELIVERED','CANCELLED') DEFAULT NULL,
   created_at DATETIME(6) DEFAULT NULL,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_orders_user_id_idempotency_key (user_id, idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS order_db_0.order_items (
