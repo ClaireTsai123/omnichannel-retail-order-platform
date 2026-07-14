@@ -139,6 +139,25 @@ Topic constants also exist for:
 
 Some constants are reserved or used only by error-handler configuration. They should not be read as fully implemented business flows unless there is an active producer and consumer path in code.
 
+### Topic Sizing
+
+Topic creation is configurable through service properties or environment variables:
+
+- `KAFKA_TOPIC_PARTITIONS`, default `6`
+- `KAFKA_TOPIC_REPLICATION_FACTOR`, default `1`
+- `KAFKA_TOPIC_MIN_IN_SYNC_REPLICAS`, default `1`
+
+The local Docker Compose stack runs a single Kafka broker, so the local default replication factor must remain `1`. For a production-like enterprise Kafka cluster, use at least three brokers and set:
+
+```text
+KAFKA_TOPIC_REPLICATION_FACTOR=3
+KAFKA_TOPIC_MIN_IN_SYNC_REPLICAS=2
+```
+
+The active producers use the order id as the Kafka message key, so all events for the same order are routed to the same partition and keep per-order ordering while still allowing parallelism across different orders.
+
+Existing Kafka topics are not automatically resized just because the Java defaults changed. For an existing local or shared cluster, delete/recreate development topics or explicitly increase partitions with Kafka admin tooling. Replication factor changes require reassignment tooling in a real cluster.
+
 ### Event Metadata
 
 The active shared event contracts include basic metadata:
@@ -406,6 +425,7 @@ Use `docker compose down -v` only when you intentionally want to remove local pe
 - DB-backed refresh token rotation and logout in `user-service`.
 - Local Docker Compose stack for repeatable end-to-end development and verification.
 - Kafka-backed asynchronous flows for payment, ledger, fulfillment, and order status updates.
+- Configurable Kafka topic partitions, replication factor, and min in-sync replicas.
 - Synchronous Feign orchestration for the core order creation/payment path.
 - Checkout request idempotency through `CreateOrderRequest.idempotencyKey`.
 - Optimistic locking on orders through the `version` column.
